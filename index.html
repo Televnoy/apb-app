@@ -281,25 +281,68 @@
                 }
             };
 
-            const takePhoto = () => {
-                if (!videoRef.current || isCurrentSubmitted) return;
-                const canvas = document.createElement('canvas');
-                const v = videoRef.current;
-                canvas.width = v.videoWidth; 
-                canvas.height = v.videoHeight;
-                const ctx = canvas.getContext('2d');
-                if (facingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
-                ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-                const photoUrl = canvas.toDataURL('image/jpeg', 0.8);
-                setParticipants(prev => prev.map(p => p.id === activeCamera ? { ...p, photos: [...p.photos, photoUrl] } : p));
-                stopCamera();
-            };
+const takePhoto = () => {
+    if (!videoRef.current || isCurrentSubmitted) return;
+    
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    
+    // Получаем реальные размеры видеопотока из сенсора
+    const vWidth = video.videoWidth;
+    const vHeight = video.videoHeight;
+    
+    // Целевые размеры для сохранения (вертикальный формат 9:16)
+    // Мы задаем их жестко, чтобы фото всегда было вертикальным
+    const targetWidth = 1080;
+    const targetHeight = 1920;
+    const targetRatio = targetWidth / targetHeight;
 
-            const stopCamera = () => {
-                if (stream) stream.getTracks().forEach(track => track.stop());
-                setStream(null);
-                setActiveCamera(null);
-            };
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+
+    // Логика кадрирования (Crop):
+    // Вычисляем, какую часть видеопотока нужно вырезать, чтобы заполнить холст
+    let sourceX, sourceY, sourceWidth, sourceHeight;
+    const videoRatio = vWidth / vHeight;
+
+    if (videoRatio > targetRatio) {
+        // Если видео шире (горизонтальное), обрезаем бока
+        sourceHeight = vHeight;
+        sourceWidth = vHeight * targetRatio;
+        sourceX = (vWidth - sourceWidth) / 2;
+        sourceY = 0;
+    } else {
+        // Если видео уже (редкий случай), обрезаем верх и низ
+        sourceWidth = vWidth;
+        sourceHeight = vWidth / targetRatio;
+        sourceX = 0;
+        sourceY = (vHeight - sourceHeight) / 2;
+    }
+
+    // Если используется фронтальная камера — отражаем по горизонтали
+    if (facingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+    }
+
+    // Рисуем:drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+    ctx.drawImage(
+        video, 
+        sourceX, sourceY, sourceWidth, sourceHeight, // Откуда вырезаем (из центра видео)
+        0, 0, targetWidth, targetHeight             // Куда вставляем (на весь холст)
+    );
+
+    const photoUrl = canvas.toDataURL('image/jpeg', 0.9); // Сохраняем с хорошим качеством
+    
+    // Обновляем состояние участников
+    setParticipants(prev => prev.map(p => 
+        p.id === activeCamera ? { ...p, photos: [...p.photos, photoUrl] } : p
+    ));
+    
+    stopCamera();
+};
+
 
             const toggleFacingMode = () => {
                 setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
