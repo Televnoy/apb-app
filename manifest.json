@@ -1,12 +1,4 @@
-{
-  "name": "APB Judging Panel",
-  "short_name": "APB Judging",
-  "description": "Professional judging system for APB competitions",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
-  "icons": [
+{"name": "АПБ Судейская Панель","short_name": "АПБ Судья","description": "Приложение для судейства чемпионата АПБ","start_url": "./index.html","display": "standalone","background_color": "#ffffff","theme_color": "#000000","orientation": "portrait","icons": [
     {
       "src": "icon-18x18.png",
       "sizes": "18x18",
