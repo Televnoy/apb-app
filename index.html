@@ -10,6 +10,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#ffffff">
     
+    <!-- Ссылка на манифест -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Иконка для iOS -->
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    
     <!-- Dependencies -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -67,7 +72,6 @@
         .card-animate {
             animation: card-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        /* Фикс для iOS видео */
         video::-webkit-media-controls {
             display:none !important;
         }
@@ -79,7 +83,16 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- Компоненты ---
+        // Регистрация Service Worker для PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('SW registered'))
+                    .catch(err => console.log('SW registration failed', err));
+            });
+        }
+
+        // --- Прелоадер ---
         const Preloader = ({ onComplete }) => {
             const [isExiting, setIsExiting] = useState(false);
             useEffect(() => {
@@ -110,7 +123,6 @@
             </span>
         );
 
-        // --- Главное приложение ---
         function App() {
             const [loading, setLoading] = useState(true);
             const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -286,8 +298,6 @@
 
             const toggleFacingMode = () => {
                 setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-                // Перезапуск стрима при смене камеры произойдет через useEffect если бы мы его добавили, 
-                // но тут проще стопнуть и юзер нажмет снова или переключить на лету:
                 stopCamera();
             };
 
