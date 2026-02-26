@@ -259,72 +259,94 @@
                 showToast('Отчет успешно отправлен');
             };
 
+
             const startCamera = async (id) => {
-    if (isCurrentSubmitted) return;
-    setActiveCamera(id);
-    try {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-
-        // Используем более гибкие настройки, чтобы избежать ошибок на разных моделях
-        const constraints = {
-            video: { 
-                facingMode: { ideal: facingMode },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        };
-
-        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        // Важно: Сначала сохраняем поток в стейт
-        setStream(mediaStream);
-
-        // Привязываем поток к видео сразу, как только элемент появится в DOM
-        if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-            // Явный вызов play() для мобильных браузеров
-            videoRef.current.onloadedmetadata = () => {
-                videoRef.current.play().catch(e => console.error("Play error:", e));
+                if (isCurrentSubmitted) return;
+                setActiveCamera(id);
+                try {
+                    if (stream) stream.getTracks().forEach(track => track.stop());
+                    const constraints = {
+                        video: { 
+                            facingMode: { ideal: facingMode }, 
+                            width: { ideal: 1920 }, // Просим высокое разрешение
+                            height: { ideal: 1080 } 
+                        },
+                        audio: false
+                    };
+                    const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    setStream(mediaStream);
+                    setTimeout(() => {
+                        if (videoRef.current) {
+                            videoRef.current.srcObject = mediaStream;
+                        }
+                    }, 100);
+                } catch (err) { 
+                    setActiveCamera(null);
+                    showToast('Ошибка доступа к камере');
+                }
             };
-        }
-    } catch (err) {
-        console.error("Camera error:", err);
-        setActiveCamera(null);
-        alert("Ошибка доступа к камере. Убедитесь, что сайт открыт через HTTPS.");
-    }
-};
 
-const takePhoto = () => {
-    if (!videoRef.current || !activeCamera) return;
+            // Исправленная функция захвата фото с коррекцией ориентации и кадрированием
+            const takePhoto = () => {
+                if (!videoRef.current || isCurrentSubmitted) return;
+                
+                const video = videoRef.current;
+                const canvas = document.createElement('canvas');
+                
+                // Получаем реальные размеры видеопотока
+                const vWidth = video.videoWidth;
+                const vHeight = video.videoHeight;
+                
+                // Целевые пропорции (вертикальные, как экран телефона)
+                const targetWidth = 1080;
+                const targetHeight = 1920;
+                const targetRatio = targetWidth / targetHeight;
 
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    
-    // Используем РЕАЛЬНЫЕ размеры видеопотока
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    const ctx = canvas.getContext('2d');
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d');
 
-    // Отражение для фронталки
-    if (facingMode === 'user') {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-    }
+                // Расчет области обрезки (Crop), чтобы имитировать object-cover
+                let sourceX, sourceY, sourceWidth, sourceHeight;
+                const videoRatio = vWidth / vHeight;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const photoUrl = canvas.toDataURL('image/jpeg', 0.8);
-    setParticipants(prev => prev.map(p => 
-        p.id === activeCamera ? { ...p, photos: [...p.photos, photoUrl] } : p
-    ));
-    
-    stopCamera();
-};
+                if (videoRatio > targetRatio) {
+                    // Видео шире чем нужно (горизонтальное) -> режем по бокам
+                    sourceHeight = vHeight;
+                    sourceWidth = vHeight * targetRatio;
+                    sourceX = (vWidth - sourceWidth) / 2;
+                    sourceY = 0;
+                } else {
+                    // Видео уже чем нужно (вертикальное, но других пропорций) -> режем сверху/снизу
+                    sourceWidth = vWidth;
+                    sourceHeight = vWidth / targetRatio;
+                    sourceX = 0;
+                    sourceY = (vHeight - sourceHeight) / 2;
+                }
 
+                // Отражение для фронтальной камеры
+                if (facingMode === 'user') {
+                    ctx.translate(canvas.width, 0);
+                    ctx.scale(-1, 1);
+                }
+
+                // Рисуем обрезанную и масштабированную часть видео
+                ctx.drawImage(
+                    video, 
+                    sourceX, sourceY, sourceWidth, sourceHeight, // Откуда берем
+                    0, 0, targetWidth, targetHeight             // Куда рисуем
+                );
+
+                const photoUrl = canvas.toDataURL('image/jpeg', 0.85);
+                setParticipants(prev => prev.map(p => p.id === activeCamera ? { ...p, photos: [...p.photos, photoUrl] } : p));
+                stopCamera();
+            };
+
+            const stopCamera = () => {
+                if (stream) stream.getTracks().forEach(track => track.stop());
+                setStream(null);
+                setActiveCamera(null);
+            };
 
             const toggleFacingMode = () => {
                 setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
