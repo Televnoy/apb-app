@@ -590,7 +590,7 @@
                                 {availableScores.map(s => {
                                     const used = occupiedScores.includes(s);
                                     return (
-                                        <div key={s} className={`flex-shrink-0 w-6 h-6 flex items-center justify-center text-[9px] rounded-full border transition-all duration-300 ${used ? 'bg-black border-black text-white scale-[1.1]' : 'bg-transparent border-gray-200 text-gray-300'}`}>
+                                        <div key={s} className={`flex-shrink-0 w-5 h-5 flex items-center justify-center text-[9px] rounded-full border transition-all duration-300 ${used ? 'bg-[#3171af] border-[#3171af] text-white scale-[1.1]' : 'bg-transparent border-gray-200 text-gray-300'}`}>
                                             <span>{s}</span>
                                         </div>
                                     );
@@ -700,7 +700,7 @@
                                 </button>
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 p-10 pb-20 flex justify-center items-center bg-gradient-to-t from-black/60 to-transparent">
-                                <button onClick={takePhoto} className="w-20 h-20 bg-white rounded-full border-[6px] border-white/20 flex items-center justify-center active:scale-90 transition-transform">
+                                <button onClick={takePhoto} className="w-20 h-20 bg-[#3171af] rounded-full border-[6px] border-white/20 flex items-center justify-center active:scale-90 transition-transform">
                                     <div className="w-14 h-14 bg-white rounded-full border-2 border-black/5" />
                                 </button>
                             </div>
