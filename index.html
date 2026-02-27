@@ -225,19 +225,47 @@
                 setTimeout(() => setToast(null), 2500);
             };
 
-            const handleAuth = () => {
-                if (accessKey === '1111' || (editAccessKey && accessKey === editAccessKey)) {
-                    const finalName = tempJudgeName || editJudgeName || 'Судья';
-                    setJudgeName(finalName);
-                    setEventCity(selectedCity);
-                    setEditJudgeName(finalName);
-                    setEditAccessKey(accessKey);
-                    setIsAuthenticated(true);
-                    localStorage.setItem('judging_app_v5_profile', JSON.stringify({ name: finalName, key: accessKey, city: selectedCity }));
-                } else {
-                    setAuthError('Неверный ключ доступа');
-                }
+            const handleAuth = async () => {
+    // 1. Сбрасываем старые ошибки перед началом
+    setAuthError(null);
+
+    try {
+        // 2. Вызываем ваше новое API (Firebase)
+        // Предполагаем, что loginInput — это имя/логин, а accessKey — это пароль
+        const result = await window.api.loginWithKey(tempJudgeName, accessKey);
+
+        if (result.success) {
+            // Данные, которые мы сохраним (приоритет данным из Firebase, если они есть)
+            const finalName = result.user?.displayName || tempJudgeName || 'Судья';
+            const finalCity = selectedCity; 
+
+            // 3. Обновляем состояния приложения
+            setJudgeName(finalName);
+            setEventCity(finalCity);
+            setIsAuthenticated(true);
+
+            // 4. Сохраняем сессию в localStorage
+            const profileData = { 
+                name: finalName, 
+                key: accessKey, 
+                city: finalCity,
+                uid: result.user?.uid // Полезно сохранить ID пользователя из Firebase
             };
+            localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
+
+            // Если были поля для редактирования, обновляем и их
+            setEditJudgeName(finalName);
+            setEditAccessKey(accessKey);
+
+        } else {
+            // 5. Обработка ошибки от Firebase
+            setAuthError(result.error || 'Неверный ключ доступа');
+        }
+    } catch (err) {
+        setAuthError('Ошибка сети или сервера');
+        console.error("Login error:", err);
+    }
+};
 
             const handleSaveSettings = () => {
                 setJudgeName(editJudgeName);
