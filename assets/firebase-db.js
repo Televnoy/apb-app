@@ -1,8 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { 
+    getFirestore, doc, getDoc, updateDoc, collection, addDoc, 
+    arrayUnion, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDSrWUBYjqYpA6CgG-tn0B2E_h9HN2wgZ8",
+    apiKey: "AIzaSyDSrWUBYjqYpA6CgG-tn0B2E_h9HN2wgZ8", // ⚠️ ВАЖНО: см. примечание ниже
     authDomain: "apbapp-862a2.firebaseapp.com",
     projectId: "apbapp-862a2",
     storageBucket: "apbapp-862a2.firebasestorage.app",
@@ -14,7 +17,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Вспомогательная функция для очистки ключа
 const clean = (str) => (str ? String(str).trim() : "");
 
 // 1. Логин: проверка ключа и привязка устройства
@@ -27,13 +29,12 @@ export const loginWithKey = async (inputKey, deviceId) => {
         const snap = await getDoc(docRef);
 
         if (!snap.exists()) {
-            console.warn(`Попытка входа с несуществующим ключом: ${key}`);
             return { success: false, error: "Ключ не найден" };
         }
 
-        // Привязываем устройство
         await updateDoc(docRef, {
-            devices: arrayUnion(deviceId)
+            devices: arrayUnion(deviceId),
+            lastLogin: serverTimestamp() // Добавили метку времени последнего входа
         });
 
         return { success: true, user: snap.data() };
@@ -43,15 +44,24 @@ export const loginWithKey = async (inputKey, deviceId) => {
     }
 };
 
-// 2. Обновление профиля
+// 2. Обновление профиля с проверкой существования
 export const updateJudgeProfile = async (inputKey, name, city) => {
     const key = clean(inputKey);
     try {
         const docRef = doc(db, "judges", key);
+        
+        // Проверяем, существует ли судья перед обновлением
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) {
+            return { success: false, error: "Судья не найден" };
+        }
+
         await updateDoc(docRef, { 
             displayName: name || "Без имени", 
-            city: city || "Не указан" 
+            city: city || "Не указан",
+            updatedAt: serverTimestamp()
         });
+        
         return { success: true };
     } catch (e) {
         console.error("Ошибка обновления профиля:", e);
@@ -59,9 +69,8 @@ export const updateJudgeProfile = async (inputKey, name, city) => {
     }
 };
 
-// 3. Сохранение оценки (с проверкой данных)
+// 3. Сохранение оценки с серверным временем
 export const saveEvaluation = async (evaluationData) => {
-    // Проверка, что evaluationData существует
     if (!evaluationData || typeof evaluationData !== 'object') {
         return { success: false, error: "Нет данных для сохранения" };
     }
@@ -69,8 +78,7 @@ export const saveEvaluation = async (evaluationData) => {
     try {
         await addDoc(collection(db, "evaluations"), {
             ...evaluationData,
-            createdAt: new Date(), // Используем объект Date для Firestore, он лучше сортируется
-            timestamp: new Date().toISOString()
+            createdAt: serverTimestamp() // Используем серверное время Firestore
         });
         return { success: true };
     } catch (e) {
