@@ -31,11 +31,9 @@
 
     <!---->
     <script type="module">
-    import { loginWithKey, updateJudgeProfile, saveEvaluation } from './assets/firebase-db.js';
-    
+    import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } from './assets/firebase-db.js';    
     // Делаем функции доступными для React-компонентов
-    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation };
-
+    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
     // Генерируем ID устройства при первом запуске
     let deviceId = localStorage.getItem('app_device_id');
     if (!deviceId) {
@@ -276,39 +274,34 @@ const handleAuth = async () => {
 const handleSaveSettings = async () => {
     try {
         let result;
-        
-        // Если ключ изменился, вызываем сложную процедуру переноса данных
+        // 1. Проверяем, изменился ли ключ (пароль)
         if (editAccessKey !== accessKey) {
+            // Если ключ новый, вызываем перенос данных
             result = await window.api.changeJudgeKey(accessKey, editAccessKey, editJudgeName, eventCity);
         } else {
-            // Если ключ тот же, просто обновляем профиль (имя и город)
+            // Если ключ тот же, просто обновляем имя и город
             result = await window.api.updateJudgeProfile(accessKey, editJudgeName, eventCity);
         }
 
-        if (result.success) {
-            // Обновляем локальное состояние приложения
+        if (result && result.success) {
+            // Обновляем состояние в приложении
             setAccessKey(editAccessKey);
             setJudgeName(editJudgeName);
             
-            // Обновляем данные в памяти браузера, чтобы при перезагрузке не выкинуло
-            const newProfile = { 
-                name: editJudgeName, 
-                key: editAccessKey, 
-                city: eventCity 
-            };
+            // Сохраняем в память браузера
+            const newProfile = { name: editJudgeName, key: editAccessKey, city: eventCity };
             localStorage.setItem('judging_app_v5_profile', JSON.stringify(newProfile));
             
             setIsSettingsOpen(false);
-            showToast('Настройки успешно обновлены');
+            showToast('Настройки сохранены');
         } else {
-            showToast(result.error || 'Ошибка сохранения');
+            showToast(result?.error || 'Ошибка сохранения');
         }
     } catch (e) {
-        console.error(e);
-        showToast('Системная ошибка');
+        console.error("Ошибка в handleSaveSettings:", e);
+        showToast('Системная ошибка: проверьте консоль');
     }
 };
-
             const participants = allData[discipline] || [{ id: '1', number: '00', comment: '', photos: [], score: null }];
             const isCurrentSubmitted = submittedDisciplines.includes(discipline);
             
