@@ -30,10 +30,20 @@
 
     <!---->
     <script type="module">
-     import { loginWithKey, saveEvaluation } from './assets/firebase-db.js';
-      window.api = { loginWithKey, saveEvaluation }; // Делаем доступным для React
+    import { loginWithKey, updateJudgeProfile, saveEvaluation } from './assets/firebase-db.js';
+    
+    // Делаем функции доступными для React-компонентов
+    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation };
+
+    // Генерируем ID устройства при первом запуске
+    let deviceId = localStorage.getItem('app_device_id');
+    if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('app_device_id', deviceId);
+    }
+    window.deviceId = deviceId; // Сохраняем в глобальную область для использования в React
     </script>
-   <!---->
+    <!---->
 
     
     <style>
@@ -224,49 +234,50 @@
                 setToast(message);
                 setTimeout(() => setToast(null), 2500);
             };
-
-            const handleAuth = async () => {
-    // 1. Сбрасываем старые ошибки перед началом
-    setAuthError(null);
+            //_________________________________________
+          const handleAuth = async () => {
+    // 1. Очищаем прошлые ошибки
+    if (setAuthError) setAuthError(null); 
 
     try {
-        // 2. Вызываем ваше новое API (Firebase)
-        // Предполагаем, что loginInput — это имя/логин, а accessKey — это пароль
+        // 2. Вызываем функцию из вашего assets/firebase-db.js
+        // Передаем то, что ввел пользователь
         const result = await window.api.loginWithKey(tempJudgeName, accessKey);
 
         if (result.success) {
-            // Данные, которые мы сохраним (приоритет данным из Firebase, если они есть)
+            // Если Firebase ответил успешно:
+            // Берем имя из БД (если есть), иначе используем то, что ввел судья
             const finalName = result.user?.displayName || tempJudgeName || 'Судья';
-            const finalCity = selectedCity; 
-
-            // 3. Обновляем состояния приложения
+            
+            // 3. Обновляем визуальное состояние приложения
             setJudgeName(finalName);
-            setEventCity(finalCity);
+            setEventCity(selectedCity);
             setIsAuthenticated(true);
 
-            // 4. Сохраняем сессию в localStorage
+            // 4. Сохраняем "бекап" устройства в localStorage
             const profileData = { 
                 name: finalName, 
                 key: accessKey, 
-                city: finalCity,
-                uid: result.user?.uid // Полезно сохранить ID пользователя из Firebase
+                city: selectedCity 
             };
             localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
 
-            // Если были поля для редактирования, обновляем и их
-            setEditJudgeName(finalName);
-            setEditAccessKey(accessKey);
-
+            // Если у вас есть поля для настроек, обновляем их тоже
+            if (setEditJudgeName) setEditJudgeName(finalName);
+            if (setEditAccessKey) setEditAccessKey(accessKey);
+            
+            console.log("Успешный вход!");
         } else {
-            // 5. Обработка ошибки от Firebase
-            setAuthError(result.error || 'Неверный ключ доступа');
+            // Если Firebase вернул {success: false}
+            if (setAuthError) setAuthError(result.error || 'Неверный ключ доступа');
         }
     } catch (err) {
-        setAuthError('Ошибка сети или сервера');
-        console.error("Login error:", err);
+        // Если вообще пропал интернет или ошибка в коде
+        if (setAuthError) setAuthError('Ошибка сети: проверьте подключение');
+        console.error("Ошибка при логине:", err);
     }
 };
-
+//__________________________________________
             const handleSaveSettings = () => {
                 setJudgeName(editJudgeName);
                 setAccessKey(editAccessKey);
