@@ -1,19 +1,6 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { 
-    getFirestore, 
-    doc, 
-    getDoc, 
-    setDoc, 
-    collection, 
-    addDoc, 
-    updateDoc,
-    query,
-    where,
-    getDocs
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Вставьте сюда ваши данные из консоли Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDSrWUBYjqYpA6CgG-tn0B2E_h9HN2wgZ8",
   authDomain: "apbapp-862a2.firebaseapp.com",
@@ -24,116 +11,49 @@ const firebaseConfig = {
   measurementId: "G-026CEF7FKV"
 };
 
-// Инициализация
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
-const appId = "apb-app-v1"; // ID вашего приложения для путей в Firestore
 
-/**
- * Генерация простого ID устройства (для привязки)
- */
-const getDeviceId = () => {
-    let id = localStorage.getItem('apb_device_id');
-    if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem('apb_device_id', id);
-    }
-    return id;
-};
-
-/**
- * Вход и проверка ключа/устройства
- */
-export const loginWithKey = async (username, accessKey) => {
+// Логин: проверка ключа
+export const loginWithKey = async (name, key) => {
     try {
-        await signInAnonymously(auth);
-        const deviceId = getDeviceId();
-        
-        // Путь согласно правилам: /artifacts/{appId}/public/data/users
-        const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', username);
-        const userSnap = await getDoc(userRef);
+        const docRef = doc(db, "judges", key);
+        const docSnap = await getDoc(docRef);
 
-        if (!userSnap.exists()) {
-            throw new Error("Пользователь не найден в базе");
+        if (docSnap.exists()) {
+            // Если ключ есть, возвращаем данные судьи
+            return { success: true, user: docSnap.data() };
+        } else {
+            // Если ключа нет - создаем нового судью
+            await setDoc(docRef, { displayName: name, lastLogin: new Date().toISOString() });
+            return { success: true, user: { displayName: name } };
         }
-
-        const userData = userSnap.data();
-
-        // Проверка ключа
-        if (userData.accessKey !== accessKey) {
-            throw new Error("Неверный ключ доступа");
-        }
-
-        // Привязка устройства (если еще не привязано)
-        if (!userData.deviceId) {
-            await updateDoc(userRef, { deviceId: deviceId });
-            return { success: true, user: username, message: "Устройство успешно привязано" };
-        } 
-        
-        // Проверка соответствия устройства
-        if (userData.deviceId !== deviceId) {
-            throw new Error("Доступ запрещен: этот аккаунт привязан к другому устройству");
-        }
-
-        return { success: true, user: username };
-    } catch (error) {
-        console.error("Ошибка входа:", error);
-        return { success: false, error: error.message };
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: "Ошибка подключения к БД" };
     }
 };
 
-/**
- * Сохранение оценки участника
- */
-export const saveEvaluation = async (username, evaluationData) => {
+// Обновление профиля (чтобы менять настройки)
+export const updateProfile = async (key, name) => {
     try {
-        if (!auth.currentUser) throw new Error("Необходима авторизация");
+        const docRef = doc(db, "judges", key);
+        await setDoc(docRef, { displayName: name, lastLogin: new Date().toISOString() }, { merge: true });
+        return { success: true };
+    } catch (e) {
+        return { success: false };
+    }
+};
 
-        const evalRef = collection(db, 'artifacts', appId, 'public', 'data', 'evaluations');
-        
-        const dataToSave = {
-            judge: username,
-            nomination: evaluationData.nomination,
-            participantId: evaluationData.participantId,
-            score: evaluationData.score,
-            comment: evaluationData.comment,
-            photoBase64: evaluationData.photo, // Фото передаем как строку base64
+// Сохранение оценки
+export const saveEvaluation = async (evaluationData) => {
+    try {
+        await addDoc(collection(db, "evaluations"), {
+            ...evaluationData,
             timestamp: new Date().toISOString()
-        };
-
-        await addDoc(evalRef, dataToSave);
-        return { success: true };
-    } catch (error) {
-        console.error("Ошибка сохранения:", error);
-        return { success: false, error: error.message };
-    }
-};
-
-/**
- * Смена логина/пароля в профиле
- */
-export const updateProfile = async (oldUsername, newUsername, newKey) => {
-    try {
-        const oldUserRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', oldUsername);
-        const userSnap = await getDoc(oldUserRef);
-        
-        if (!userSnap.exists()) throw new Error("Ошибка доступа");
-        
-        const currentData = userSnap.data();
-        const newUserRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', newUsername);
-        
-        // Создаем новую запись, копируем deviceId
-        await setDoc(newUserRef, {
-            accessKey: newKey,
-            deviceId: currentData.deviceId
         });
-        
-        // Здесь можно удалить старую запись, если логин изменился
-        // await deleteDoc(oldUserRef); 
-
         return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
+    } catch (e) {
+        return { success: false };
     }
 };
