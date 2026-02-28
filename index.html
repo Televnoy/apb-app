@@ -277,13 +277,31 @@ if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id'
     }
 };
 //__________________________________________
-            const handleSaveSettings = () => {
-                setJudgeName(editJudgeName);
-                setAccessKey(editAccessKey);
-                localStorage.setItem('judging_app_v5_profile', JSON.stringify({ name: editJudgeName, key: editAccessKey, city: eventCity }));
-                setIsSettingsOpen(false);
-                showToast('Настройки сохранены');
-            };
+           const handleSaveSettings = async () => {
+    // Проверяем, изменился ли ключ
+    if (editAccessKey !== accessKey) {
+        const result = await window.api.changeAccessKey(accessKey, editAccessKey);
+        if (!result.success) {
+            showToast("Ошибка: " + result.error);
+            return;
+        }
+    }
+
+    // Обновляем данные профиля (имя/город)
+    await window.api.updateJudgeProfile(editAccessKey, editJudgeName, eventCity);
+    
+    // Обновляем состояние
+    setJudgeName(editJudgeName);
+    setAccessKey(editAccessKey);
+    localStorage.setItem('judging_app_v5_profile', JSON.stringify({ 
+        name: editJudgeName, 
+        key: editAccessKey, 
+        city: eventCity 
+    }));
+    
+    setIsSettingsOpen(false);
+    showToast('Настройки обновлены');
+};
 
             const participants = allData[discipline] || [{ id: '1', number: '00', comment: '', photos: [], score: null }];
             const isCurrentSubmitted = submittedDisciplines.includes(discipline);
