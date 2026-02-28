@@ -235,46 +235,24 @@
                 setTimeout(() => setToast(null), 2500);
             };
             //_________________________________________
-          const handleAuth = async () => {
-    // 1. Очищаем прошлые ошибки
-    if (setAuthError) setAuthError(null); 
+         const handleAuth = async () => {
+    setAuthError(null);
 
     try {
-        // 2. Вызываем функцию из вашего assets/firebase-db.js
-        // Передаем то, что ввел пользователь
-        const result = await window.api.loginWithKey(tempJudgeName, accessKey);
+        // tempJudgeName — это ваш ID документа (например, '1111')
+        // window.deviceId — это тот самый сгенерированный ID устройства
+        const result = await window.api.loginWithKey(tempJudgeName, window.deviceId);
 
         if (result.success) {
-            // Если Firebase ответил успешно:
-            // Берем имя из БД (если есть), иначе используем то, что ввел судья
-            const finalName = result.user?.displayName || tempJudgeName || 'Судья';
-            
-            // 3. Обновляем визуальное состояние приложения
-            setJudgeName(finalName);
-            setEventCity(selectedCity);
+            // ... (остальной ваш код успешной авторизации)
             setIsAuthenticated(true);
-
-            // 4. Сохраняем "бекап" устройства в localStorage
-            const profileData = { 
-                name: finalName, 
-                key: accessKey, 
-                city: selectedCity 
-            };
-            localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
-
-            // Если у вас есть поля для настроек, обновляем их тоже
-            if (setEditJudgeName) setEditJudgeName(finalName);
-            if (setEditAccessKey) setEditAccessKey(accessKey);
-            
-            console.log("Успешный вход!");
+            // ...
         } else {
-            // Если Firebase вернул {success: false}
-            if (setAuthError) setAuthError(result.error || 'Неверный ключ доступа');
+            setAuthError(result.error || 'Неверный ключ доступа');
         }
     } catch (err) {
-        // Если вообще пропал интернет или ошибка в коде
-        if (setAuthError) setAuthError('Ошибка сети: проверьте подключение');
-        console.error("Ошибка при логине:", err);
+        setAuthError('Ошибка сети или сервера');
+        console.error("Login error:", err);
     }
 };
 //__________________________________________
