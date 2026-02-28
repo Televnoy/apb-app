@@ -236,23 +236,43 @@
                 setTimeout(() => setToast(null), 2500);
             };
             //_________________________________________
-         const handleAuth = async () => {
+const deviceId = localStorage.getItem('app_device_id') || 'dev_' + Math.random().toString(36).substr(2, 9);
+if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id', deviceId);
+            
+ const handleAuth = async () => {
     setAuthError(null);
 
+    // Добавляем проверку, что ключ не пустой
+    if (!accessKey) {
+        setAuthError('Введите ключ доступа');
+        return;
+    }
+
     try {
-        // tempJudgeName — это ваш ID документа (например, '1111')
-        // window.deviceId — это тот самый сгенерированный ID устройства
-        const result = await window.api.loginWithKey(tempJudgeName, window.deviceId);
+        // ПЕРЕДАЕМ accessKey первым аргументом (это ваш ID документа в базе)
+        const result = await window.api.loginWithKey(accessKey, deviceId);
 
         if (result.success) {
-            // ... (остальной ваш код успешной авторизации)
+            // Данные, которые мы сохраним
+            const finalName = tempJudgeName || result.user?.displayName || 'Судья';
+            const finalCity = selectedCity; 
+
+            setJudgeName(finalName);
+            setEventCity(finalCity);
             setIsAuthenticated(true);
-            // ...
+
+            // Сохраняем сессию
+            const profileData = { 
+                name: finalName, 
+                key: accessKey, 
+                city: finalCity
+            };
+            localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
         } else {
             setAuthError(result.error || 'Неверный ключ доступа');
         }
     } catch (err) {
-        setAuthError('Ошибка сети или сервера');
+        setAuthError('Ошибка соединения с сервером');
         console.error("Login error:", err);
     }
 };
