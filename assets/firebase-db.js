@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
     getFirestore, doc, getDoc, updateDoc, collection, addDoc, 
-    arrayUnion, serverTimestamp 
+    arrayUnion, serverTimestamp, setDoc, deleteDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -22,59 +22,54 @@ const clean = (str) => (str ? String(str).trim() : "");
 // 1. Логин
 export const loginWithKey = async (inputKey, deviceId) => {
     const key = clean(inputKey);
-    if (!key) return { success: false, error: "Ключ не может быть пустым" };
-
     try {
         const docRef = doc(db, "judges", key);
         const snap = await getDoc(docRef);
-
-        if (!snap.exists()) {
-            return { success: false, error: "Ключ не найден" };
-        }
-
-        await updateDoc(docRef, {
-            devices: arrayUnion(deviceId),
-            lastLogin: serverTimestamp()
-        });
-
+        if (!snap.exists()) return { success: false, error: "Ключ не найден" };
+        await updateDoc(docRef, { devices: arrayUnion(deviceId), lastLogin: serverTimestamp() });
         return { success: true, user: snap.data() };
-    } catch (e) {
-        console.error("Ошибка при логине:", e);
-        return { success: false, error: "Ошибка соединения" };
-    }
+    } catch (e) { return { success: false, error: e.message }; }
 };
 
-// 2. Обновление профиля (имя и город)
-export const updateJudgeProfile = async (inputKey, name, city) => {
-    const key = clean(inputKey);
+// 2. Обновление только имени и города
+export const updateJudgeProfile = async (key, name, city) => {
     try {
-        const docRef = doc(db, "judges", key);
-        
+        const docRef = doc(db, "judges", clean(key));
         await updateDoc(docRef, { 
             displayName: name || "Без имени", 
             city: city || "Не указан",
             updatedAt: serverTimestamp()
         });
-        
         return { success: true };
-    } catch (e) {
-        console.error("Ошибка обновления профиля:", e);
-        return { success: false, error: "Не удалось обновить профи * Ошибка записи" };
-    }
+    } catch (e) { return { success: false, error: e.message }; }
 };
 
-// 3. Сохранение оценки (теперь принимает профиль целиком)
-export const saveEvaluation = async (evaluationData) => {
-    if (!evaluationData) return { success: false, error: "Нет данных" };
-
+// 3. Смена Ключа (перенос документа)
+export const changeJudgeKey = async (oldKey, newKey, name, city) => {
     try {
-        await addDoc(collection(db, "evaluations"), {
-            ...evaluationData,
-            createdAt: serverTimestamp()
-        });
+        const oldRef = doc(db, "judges", clean(oldKey));
+        const newRef = doc(db, "judges", clean(newKey));
+        const snap = await getDoc(oldRef);
+        
+        if (!snap.exists()) return { success: false, error: "Старый профиль не найден" };
+        
+        const newData = {
+            ...snap.data(),
+            displayName: name,
+            city: city,
+            updatedAt: serverTimestamp()
+        };
+
+        await setDoc(newRef, newData); // Создаем новый документ
+        await deleteDoc(oldRef);      // Удаляем старый
         return { success: true };
-    } catch (e) {
-        console.error("Ошибка сохранения оценки:", e);
-        return { success: false, error: "Ошибка отправки" };
-    }
+    } catch (e) { return { success: false, error: e.message }; }
+};
+
+// 4. Сохранение оценки
+export const saveEvaluation = async (data) => {
+    try {
+        await addDoc(collection(db, "evaluations"), { ...data, createdAt: serverTimestamp() });
+        return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
 };
