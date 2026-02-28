@@ -308,16 +308,45 @@
                 setAllData(prev => ({ ...prev, [discipline]: nextParticipants }));
             };
 
-            const handleSendReport = () => {
+            // Новая функция отправки (внутри App)
+            const sendEvaluation = async (evalData) => {
+                const profile = JSON.parse(localStorage.getItem('judging_app_v5_profile') || '{}');
+                const fullData = {
+                    ...evalData,
+                    accessKey: profile.key || '',
+                    deviceId: window.deviceId || 'unknown'
+                };
+                try {
+                    await window.api.saveEvaluation(fullData);
+                    console.log("Данные успешно отправлены в Firebase");
+                } catch (e) {
+                    console.error("Ошибка при отправке в Firebase:", e);
+                    showToast("Ошибка: данные не ушли на сервер");
+                }
+            };
+
+            // Обновленный обработчик нажатия кнопки
+            const handleSendReport = async () => {
                 if (submittedDisciplines.includes(discipline)) return;
+
+                // 1. Отправляем в базу данных
+                await sendEvaluation({
+                    discipline: discipline,
+                    participants: participants,
+                    timestamp: new Date().toISOString()
+                });
+
+                // 2. Обновляем локальный статус (то, что было у тебя)
                 const now = new Date();
                 const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                
                 const newHistoryEntries = participants.map(p => ({
                     date: timestamp,
                     discipline: discipline,
                     participantId: p.number,
                     score: p.score
                 }));
+                
                 setHistory(prev => [...newHistoryEntries, ...prev]);
                 setSubmittedDisciplines(prev => [...prev, discipline]);
                 showToast('Отчет успешно отправлен');
