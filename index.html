@@ -239,68 +239,74 @@
 const deviceId = localStorage.getItem('app_device_id') || 'dev_' + Math.random().toString(36).substr(2, 9);
 if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id', deviceId);
             
- const handleAuth = async () => {
+const handleAuth = async () => {
     setAuthError(null);
-
-    // Добавляем проверку, что ключ не пустой
     if (!accessKey) {
         setAuthError('Введите ключ доступа');
         return;
     }
 
     try {
-        // ПЕРЕДАЕМ accessKey первым аргументом (это ваш ID документа в базе)
-        const result = await window.api.loginWithKey(accessKey, deviceId);
+        const result = await window.api.loginWithKey(accessKey, window.deviceId);
 
         if (result.success) {
-            // Данные, которые мы сохраним
-            const finalName = tempJudgeName || result.user?.displayName || 'Судья';
-            const finalCity = selectedCity; 
+            // Если в базе уже есть имя/город, берем их, если нет — используем введенные
+            const finalName = result.user?.displayName || tempJudgeName || 'Судья';
+            const finalCity = result.user?.city || selectedCity || 'Москва';
+
+            // Если в базе было пусто, сохраняем туда то, что ввел пользователь при входе
+            if (!result.user?.displayName || !result.user?.city) {
+                await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
+            }
 
             setJudgeName(finalName);
             setEventCity(finalCity);
             setIsAuthenticated(true);
 
-            // Сохраняем сессию
-            const profileData = { 
-                name: finalName, 
-                key: accessKey, 
-                city: finalCity
-            };
+            const profileData = { name: finalName, key: accessKey, city: finalCity };
             localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
         } else {
-            setAuthError(result.error || 'Неверный ключ доступа');
+            setAuthError(result.error);
         }
     } catch (err) {
-        setAuthError('Ошибка соединения с сервером');
-        console.error("Login error:", err);
+        setAuthError('Ошибка соединения');
     }
 };
 //__________________________________________
-           const handleSaveSettings = async () => {
-    // Проверяем, изменился ли ключ
-    if (editAccessKey !== accessKey) {
-        const result = await window.api.changeAccessKey(accessKey, editAccessKey);
-        if (!result.success) {
-            showToast("Ошибка: " + result.error);
-            return;
+const handleSaveSettings = async () => {
+    try {
+        let result;
+        
+        // Если ключ изменился, вызываем сложную процедуру переноса данных
+        if (editAccessKey !== accessKey) {
+            result = await window.api.changeJudgeKey(accessKey, editAccessKey, editJudgeName, eventCity);
+        } else {
+            // Если ключ тот же, просто обновляем профиль (имя и город)
+            result = await window.api.updateJudgeProfile(accessKey, editJudgeName, eventCity);
         }
-    }
 
-    // Обновляем данные профиля (имя/город)
-    await window.api.updateJudgeProfile(editAccessKey, editJudgeName, eventCity);
-    
-    // Обновляем состояние
-    setJudgeName(editJudgeName);
-    setAccessKey(editAccessKey);
-    localStorage.setItem('judging_app_v5_profile', JSON.stringify({ 
-        name: editJudgeName, 
-        key: editAccessKey, 
-        city: eventCity 
-    }));
-    
-    setIsSettingsOpen(false);
-    showToast('Настройки обновлены');
+        if (result.success) {
+            // Обновляем локальное состояние приложения
+            setAccessKey(editAccessKey);
+            setJudgeName(editJudgeName);
+            
+            // Обновляем данные в памяти браузера, чтобы при перезагрузке не выкинуло
+            const newProfile = { 
+                name: editJudgeName, 
+                key: editAccessKey, 
+                city: eventCity 
+            };
+            localStorage.setItem('judging_app_v5_profile', JSON.stringify(newProfile));
+            
+            setIsSettingsOpen(false);
+            showToast('Настройки успешно обновлены');
+        } else {
+            showToast(result.error || 'Ошибка сохранения');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Системная ошибка');
+    }
 };
 
             const participants = allData[discipline] || [{ id: '1', number: '00', comment: '', photos: [], score: null }];
@@ -330,8 +336,10 @@ if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id'
                 const profile = JSON.parse(localStorage.getItem('judging_app_v5_profile') || '{}');
                 const fullData = {
                     ...evalData,
-                    accessKey: profile.key || '',
-                    deviceId: window.deviceId || 'unknown'
+                    judgeName: judgeName, // Берем актуальное имя из состояния
+                    city: eventCity,      // Берем город из состояния
+                    accessKey: accessKey, // Актуальный ключ
+                    deviceId: window.deviceId
                 };
                 try {
                     await window.api.saveEvaluation(fullData);
