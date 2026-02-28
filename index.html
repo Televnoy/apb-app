@@ -29,7 +29,7 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 
-    <!---->
+    <!----
     <script type="module">
     import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } from './assets/firebase-db.js';    
     // Делаем функции доступными для React-компонентов
@@ -807,5 +807,23 @@ const handleSaveSettings = async () => {
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
+    <script type="module">
+        // 1. Сначала ИМПОРТИРУЕМ все функции из файла
+        import { 
+            loginWithKey, 
+            updateJudgeProfile, 
+            saveEvaluation, 
+            changeJudgeKey // <-- ПРОВЕРЬТЕ: ЭТА СТРОЧКА ДОЛЖНА БЫТЬ ТУТ
+        } from './assets/firebase-db.js';
+
+        // 2. Затем СОЗДАЕМ МОСТИК для React
+        window.api = { 
+            loginWithKey, 
+            updateJudgeProfile, 
+            saveEvaluation, 
+            changeJudgeKey // <-- И ТУТ ТОЖЕ
+        };
+
+        // ... дальше идет ваш код React (const App = () => { ... })
 </body>
 </html>
