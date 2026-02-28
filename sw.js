@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
   './icons/icon-32.png',
   './icons/icon-72.png',
   './icons/icon-96.png',
-  './icons/icon-128.png',
+  './icons/icon-120.png',
   './icons/icon-144.png',
   './icons/icon-152.png',
   './icons/icon-192.png',
