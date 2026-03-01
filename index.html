@@ -438,35 +438,62 @@ const handleGalleryUpload = async (event, participant) => {
 };
             
             
-            const takePhoto = async () => {
+const takePhoto = async () => {
     if (!videoRef.current || isCurrentSubmitted) return;
     
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
     
-    // ОПТИМИЗАЦИЯ: Уменьшаем разрешение до 600px по ширине
-    const targetWidth = 600; 
-    const targetHeight = 1066; // 600 * 1.777 (пропорция 9:16)
+    // Те же размеры, что ты использовал, но чуть меньше для экономии
+    const targetWidth = 800; 
+    const targetHeight = 1422; // Пропорция 9:16
     
     canvas.width = targetWidth;
     canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
 
-    // ... (код расчета sourceX, sourceY остается без изменений) ...
-    // Отражение для фронтальной камеры
+    // Логика обрезки (Crop) как в твоем исходном коде
+    const vWidth = video.videoWidth;
+    const vHeight = video.videoHeight;
+    const targetRatio = targetWidth / targetHeight;
+    const videoRatio = vWidth / vHeight;
+
+    let sX, sY, sW, sH;
+    if (videoRatio > targetRatio) {
+        sH = vHeight;
+        sW = vHeight * targetRatio;
+        sX = (vWidth - sW) / 2;
+        sY = 0;
+    } else {
+        sW = vWidth;
+        sH = vWidth / targetRatio;
+        sX = 0;
+        sY = (vHeight - sH) / 2;
+    }
+
     if (facingMode === 'user') {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
     }
 
-    ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, targetWidth, targetHeight);
+    ctx.drawImage(video, sX, sY, sW, sH, 0, 0, targetWidth, targetHeight);
 
-    // СЖАТИЕ: качество 0.7 (70%) — идеальный баланс
-    const photoUrl = canvas.toDataURL('image/jpeg', 0.7);
-    
-    // ВАЖНО: Вместо сохранения в Firestore, здесь лучше сразу 
-    // загрузить в Storage и получить URL, как мы обсуждали ранее.
-    // ... логика загрузки ...
+    try {
+        const photoUrlBase64 = canvas.toDataURL('image/jpeg', 0.7); // Сжимаем до 70%
+        showToast('Загрузка фото...');
+        
+        // Загружаем в облако
+        const fileName = `photos/${Date.now()}_camera.jpg`;
+        const downloadUrl = await window.api.uploadPhoto(photoUrlBase64, fileName);
+        
+        // Обновляем участника (activeCamera — это ID текущего участника)
+        updateParticipant(activeCamera, 'photos', [...participants.find(p => p.id === activeCamera).photos, downloadUrl]);
+        
+        stopCamera();
+    } catch (err) {
+        console.error(err);
+        showToast('Ошибка при сохранении фото');
+    }
 };
 
             const stopCamera = () => {
@@ -670,7 +697,7 @@ const handleGalleryUpload = async (event, participant) => {
                                             >
                                                 <Icon name="mic" size={18} /> Голос
                                             </button>
-                                           <label className="flex items-center gap-2 text-gray-600 text-[10px] font-medium uppercase tracking-widest cursor-pointer disabled:opacity-20">
+<label className="flex items-center gap-2 text-gray-600 text-[10px] font-medium uppercase tracking-widest cursor-pointer disabled:opacity-20">
     <Icon name="attach_file" size={18} /> Галерея
     <input 
         type="file" 
@@ -678,7 +705,39 @@ const handleGalleryUpload = async (event, participant) => {
         accept="image/*" 
         className="hidden" 
         disabled={isCurrentSubmitted} 
-        onChange={handleGalleryUpload} 
+        onChange={async (e) => {
+            const files = Array.from(e.target.files);
+            showToast(`Загрузка ${files.length} фото...`);
+            
+            for (const file of files) {
+                const reader = new FileReader();
+                const downloadUrl = await new Promise((resolve) => {
+                    reader.onload = (re) => {
+                        const img = new Image();
+                        img.onload = async () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 800;
+                            const scale = MAX_WIDTH / img.width;
+                            canvas.width = MAX_WIDTH;
+                            canvas.height = img.height * scale;
+                            
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            
+                            const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                            const fileName = `photos/${Date.now()}_gallery.jpg`;
+                            const url = await window.api.uploadPhoto(compressed, fileName);
+                            resolve(url);
+                        };
+                        img.src = re.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                // Обновляем текущего участника в цикле
+                updateParticipant(participant.id, 'photos', [...participant.photos, downloadUrl]);
+            }
+        }} 
     />
 </label>
                                         </div>
