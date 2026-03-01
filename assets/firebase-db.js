@@ -152,7 +152,6 @@ export const uploadPhoto = async (base64Data, path) => {
         throw e;
     }
 };
-// В самом конце файла firebase-db.js добавьте:
-
+// Добавьте это в самый конец firebase-db.js
 window.uploadPhoto = uploadPhoto;
 window.saveEvaluation = saveEvaluation;
