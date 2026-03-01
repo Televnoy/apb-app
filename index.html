@@ -436,44 +436,7 @@ const handleSaveSettings = async () => {
                 }
             };
 
-const handleGalleryUpload = async (event, participant) => {
-    const files = Array.from(event.target.files);
-    
-    for (const file of files) {
-        const reader = new FileReader();
-        
-        // Сжатие и загрузка
-        const downloadUrl = await new Promise((resolve) => {
-            reader.onload = async (re) => {
-                const img = new Image();
-                img.onload = async () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 600;
-                    const scaleSize = MAX_WIDTH / img.width;
-                    canvas.width = MAX_WIDTH;
-                    canvas.height = img.height * scaleSize;
-                    
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    const base64Resized = canvas.toDataURL('image/jpeg', 0.7);
-                    
-                    // Загрузка в Firebase Storage
-                    const fileName = `photos/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
-                    const url = await window.api.uploadPhoto(base64Resized, fileName);
-                    resolve(url);
-                };
-                img.src = re.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-
-        // Обновление состояния после получения URL
-        updateParticipant(participant.id, 'photos', [...participant.photos, downloadUrl]);
-    }
-};
-            
-            
+         
 // Исправленный захват фото (БЕЗ мгновенной загрузки в FB)
 const takePhoto = () => {
     if (!videoRef.current || isCurrentSubmitted) return;
