@@ -152,6 +152,7 @@ export const uploadPhoto = async (base64Data, path) => {
         throw e;
     }
 };
-// Регистрируем функции в глобальном объекте window, чтобы index.html их видел
+// В самом конце файла firebase-db.js добавьте:
+
 window.uploadPhoto = uploadPhoto;
 window.saveEvaluation = saveEvaluation;
