@@ -63,6 +63,22 @@
     window.currentDeviceId = dId;
 
     // ...далее твой компонент App...
+
+    // Пытаемся отрендерить приложение и ловим ошибку
+    try {
+        console.log("Попытка рендеринга App...");
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(<App />);
+    } catch (e) {
+        console.error("КРИТИЧЕСКАЯ ОШИБКА РЕНДЕРИНГА:", e);
+        rootElement.innerHTML = `
+            <div style="padding: 20px; font-family: sans-serif;">
+                <h2 style="color: red;">Ошибка в приложении</h2>
+                <p>Текст ошибки: <strong>${e.message}</strong></p>
+                <p>Посмотри консоль (F12) для деталей.</p>
+            </div>
+        `;
+    }
 </script>
 
     <!---->
