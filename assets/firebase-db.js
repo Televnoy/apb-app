@@ -19,17 +19,45 @@ const db = getFirestore(app);
 
 const clean = (str) => (str ? String(str).trim() : "");
 
-// 1. Логин
+// 1. Логин с жесткой привязкой к устройству
 export const loginWithKey = async (inputKey, deviceId) => {
     const key = clean(inputKey);
     try {
         const docRef = doc(db, "judges", key);
         const snap = await getDoc(docRef);
-        if (!snap.exists()) return { success: false, error: "Ключ не найден" };
-        await updateDoc(docRef, { devices: arrayUnion(deviceId), lastLogin: serverTimestamp() });
-        return { success: true, user: snap.data() };
-    } catch (e) { return { success: false, error: e.message }; }
+        
+        if (!snap.exists()) {
+            return { success: false, error: "Ключ не найден в базе" };
+        }
+
+        const userData = snap.data();
+
+        // ПРОВЕРКА ПРИВЯЗКИ
+        if (userData.deviceId && userData.deviceId !== deviceId) {
+            // Если в базе уже есть ID и он не совпадает с текущим
+            return { 
+                success: false, 
+                error: "Этот ключ уже привязан к другому устройству!" 
+            };
+        }
+
+        // Если привязки еще нет, создаем её
+        if (!userData.deviceId) {
+            await updateDoc(docRef, { 
+                deviceId: deviceId,
+                firstLogin: serverTimestamp() 
+            });
+        }
+
+        // Обновляем время последнего входа
+        await updateDoc(docRef, { lastLogin: serverTimestamp() });
+        
+        return { success: true, user: userData };
+    } catch (e) { 
+        return { success: false, error: "Ошибка базы: " + e.message }; 
+    }
 };
+
 
 // 2. Обновление только имени и города
 export const updateJudgeProfile = async (key, name, city) => {
