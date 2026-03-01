@@ -31,15 +31,18 @@
 
     <!---->
     <script type="module">
-    import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } from './assets/firebase-db.js';    
-    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
+    // Добавляем uploadPhoto в импорт
+    import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey, uploadPhoto } from './assets/firebase-db.js';    
+    
+    // Добавляем uploadPhoto в window.api
+    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey, uploadPhoto };
 
     let deviceId = localStorage.getItem('app_device_id');
     if (!deviceId) {
         deviceId = 'dev_' + Math.random().toString(36).substr(2, 12) + Date.now();
         localStorage.setItem('app_device_id', deviceId);
     }
-    window.deviceId = deviceId; // Обязательно для доступа из React
+    window.deviceId = deviceId;
 </script>
 
     <!---->
@@ -421,10 +424,11 @@ const takePhoto = () => {
 };
 
 const handleSendReport = async () => {
-    // 1. Защита от повторного нажатия
-    if (isSubmitting) return; 
+    // 1. Защита от повторного нажатия и от повторной отправки уже отправленного отчета
+    if (isSubmitting || isCurrentSubmitted) return; 
+    
     setIsSubmitting(true);
-    showToast('Начинаем загрузку фото...');
+    showToast('Начинаем загрузку фото в облако...');
 
     try {
         const finalParticipants = [];
@@ -436,10 +440,10 @@ const handleSendReport = async () => {
             // Загружаем каждое фото этого участника в облако
             for (const photoData of p.photos) {
                 // Если фото — это Base64 (начинается с data:), значит оно новое и его надо грузить
-                if (photoData.startsWith('data:')) {
+                if (photoData && photoData.startsWith('data:')) {
                     const fileName = `evals/${accessKey}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.jpg`;
                     
-                    // Вызываем функцию, которую мы "пробросили" в window из firebase-db.js
+                    // Вызываем функцию window.uploadPhoto (проброшенную из firebase-db.js)
                     const url = await window.uploadPhoto(photoData, fileName);
                     uploadedUrls.push(url);
                 } else {
@@ -457,24 +461,24 @@ const handleSendReport = async () => {
 
         // 3. Собираем итоговый отчет
         const reportData = {
-            discipline: discipline, // Убедитесь, что эта переменная доступна
+            discipline: discipline, 
             participants: finalParticipants,
-            judgeName: judgeName,   // Убедитесь, что эта переменная доступна
+            judgeName: judgeName,  
             timestamp: new Date().toISOString()
         };
 
-        // 4. Отправляем в базу
+        // 4. Отправляем в базу через глобальную функцию
         const result = await window.saveEvaluation(reportData);
 
         if (result.success) {
             showToast('Отчет и фото успешно отправлены!');
-            setIsCurrentSubmitted(true); // Блокируем дальнейшее редактирование
+            setIsCurrentSubmitted(true); // Блокируем дальнейшее редактирование и отправку
         } else {
             throw new Error(result.error || "Ошибка сохранения");
         }
     } catch (e) {
         console.error("Ошибка при отправке:", e);
-        showToast('Ошибка: ' + e.message);
+        showToast('Ошибка при отправке: ' + e.message);
     } finally {
         setIsSubmitting(false);
     }
