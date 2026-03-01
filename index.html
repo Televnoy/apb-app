@@ -480,8 +480,8 @@ const takePhoto = () => {
     stopCamera();
 };
 
-// Исправленная галерея (БЕЗ мгновенной загрузки)
-const handleGalleryUpload = (e, partId) => {
+// Исправленная загрузка из галереи
+const handleGalleryLocal = (e, participantId) => {
     const files = Array.from(e.target.files);
     files.forEach(file => {
         const reader = new FileReader();
@@ -498,7 +498,7 @@ const handleGalleryUpload = (e, partId) => {
                 
                 const compressed = canvas.toDataURL('image/jpeg', 0.7);
                 setParticipants(prev => prev.map(p => 
-                    p.id === partId ? { ...p, photos: [...p.photos, compressed] } : p
+                    p.id === participantId ? { ...p, photos: [...p.photos, compressed] } : p
                 ));
             };
             img.src = re.target.result;
