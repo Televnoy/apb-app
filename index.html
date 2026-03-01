@@ -274,37 +274,71 @@ const handleAuth = async () => {
     }
 };
 //__________________________________________
-const handleSaveSettings = async () => {
-    try {
-        let result;
-        // 1. Проверяем, изменился ли ключ (пароль)
-        if (editAccessKey !== accessKey) {
-            // Если ключ новый, вызываем перенос данных
-            result = await window.api.changeJudgeKey(accessKey, editAccessKey, editJudgeName, eventCity);
-        } else {
-            // Если ключ тот же, просто обновляем имя и город
-            result = await window.api.updateJudgeProfile(accessKey, editJudgeName, eventCity);
-        }
+const handleAuth = async () => {
+    setAuthError(null);
 
-        if (result && result.success) {
-            // Обновляем состояние в приложении
-            setAccessKey(editAccessKey);
-            setJudgeName(editJudgeName);
+    // 1. Базовая проверка заполнения
+    if (!accessKey.trim()) {
+        setAuthError('Введите ключ доступа');
+        return;
+    }
+
+    // 2. Проверка минимальной длины (согласно нашим правилам безопасности)
+    if (accessKey.trim().length < 6) {
+        setAuthError('Ключ должен содержать не менее 6 символов');
+        return;
+    }
+
+    // 3. Проверка готовности API
+    if (!window.api) {
+        setAuthError('Система загружается, подождите секунду...');
+        return;
+    }
+
+    setLoading(true); // Если у тебя есть стейт загрузки
+
+    try {
+        // Используем window.currentDeviceId (или тот, что ты прописал в localStorage)
+        const deviceId = window.currentDeviceId || localStorage.getItem('app_device_id');
+        
+        const result = await window.api.loginWithKey(accessKey, deviceId);
+
+        if (result.success) {
+            // Определяем финальные данные: приоритет данным из базы (если они там есть)
+            const finalName = result.user?.displayName || tempJudgeName || 'Судья';
+            const finalCity = result.user?.city || selectedCity || 'Москва';
+
+            // Если в базе профиль новый (нет имени или города), обновляем его сразу
+            if (!result.user?.displayName || !result.user?.city) {
+                await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
+            }
+
+            // Обновляем состояния приложения
+            setJudgeName(finalName);
+            setEventCity(finalCity);
+            setKey(accessKey); // Сохраняем ключ в основной стейт
+            setIsAuthenticated(true);
             
-            // Сохраняем в память браузера
-            const newProfile = { name: editJudgeName, key: editAccessKey, city: eventCity };
-            localStorage.setItem('judging_app_v5_profile', JSON.stringify(newProfile));
+            // Если в приложении используется view, переключаем на дашборд
+            if (typeof setView === 'function') setView('dashboard');
+
+            // Сохраняем профиль для автологина при перезагрузке
+            const profileData = { name: finalName, key: accessKey, city: finalCity };
+            localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
             
-            setIsSettingsOpen(false);
-            showToast('Настройки сохранены');
+            console.log("Авторизация успешна. DeviceId:", deviceId);
         } else {
-            showToast(result?.error || 'Ошибка сохранения');
+            // Сюда попадет ошибка "Ключ не найден" или "Привязан к другому устройству"
+            setAuthError(result.error);
         }
-    } catch (e) {
-        console.error("Ошибка в handleSaveSettings:", e);
-        showToast('Системная ошибка: проверьте консоль');
+    } catch (err) {
+        console.error("Auth error:", err);
+        setAuthError('Ошибка соединения с сервером');
+    } finally {
+        setLoading(false);
     }
 };
+
             const participants = allData[discipline] || [{ id: '1', number: '00', comment: '', photos: [], score: null }];
             const isCurrentSubmitted = submittedDisciplines.includes(discipline);
             
