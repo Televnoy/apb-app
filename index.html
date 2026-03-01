@@ -34,17 +34,27 @@
 
     <!---->
     <script type="module">
-    // Пробуем импортировать. Если файл не найден — выводим ошибку в консоль
+    // Защищенный импорт. Если файла нет, приложение не упадет, а покажет ошибку
     try {
-        const { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } = await import('./assets/firebase-db.js');
-        window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
-        console.log("API успешно загружено");
-    } catch (e) {
-        console.error("КРИТИЧЕСКАЯ ОШИБКА: Не удалось загрузить firebase-db.js. Проверь путь!");
-        document.body.innerHTML = "<h2 style='color:red; padding: 20px;'>Ошибка загрузки скрипта. Проверь путь к firebase-db.js</h2>";
+        const module = await import('./assets/firebase-db.js');
+        window.api = { 
+            loginWithKey: module.loginWithKey, 
+            updateJudgeProfile: module.updateJudgeProfile, 
+            saveEvaluation: module.saveEvaluation, 
+            changeJudgeKey: module.changeJudgeKey 
+        };
+        console.log("Модуль Firebase успешно загружен");
+    } catch (err) {
+        console.error("Критическая ошибка загрузки модуля:", err);
+        document.body.innerHTML = `
+            <div style="padding: 50px; text-align: center; color: red;">
+                <h1>Ошибка загрузки</h1>
+                <p>Не удалось найти файл <b>/assets/firebase-db.js</b></p>
+                <p>Проверь, лежит ли он в папке <b>assets</b>!</p>
+            </div>`;
     }
 
-    // Инициализация ID (вынесена отдельно)
+    // Инициализация ID (остальной код)
     let dId = localStorage.getItem('app_device_id');
     if (!dId) {
         dId = 'dev_' + Math.random().toString(36).substr(2, 9);
@@ -52,20 +62,8 @@
     }
     window.currentDeviceId = dId;
 
-    // ... далее идет ваш const App = () => { ...
-    // ... ваш код компонентов ...
-
-    // Рендеринг с защитой от ошибок
-    try {
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    } catch (e) {
-        console.error("Ошибка рендеринга React:", e);
-        document.body.innerHTML = "<h2 style='color:red; padding: 20px;'>Ошибка рендеринга. Проверь консоль (F12).</h2>";
-    }
+    // ...далее твой компонент App...
 </script>
-
-
 
     <!---->
 
