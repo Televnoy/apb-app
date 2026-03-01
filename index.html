@@ -437,24 +437,25 @@ const handleSaveSettings = async () => {
             };
 
          
-// Исправленный захват фото (БЕЗ мгновенной загрузки в FB)
+// Исправленная функция захвата фото
 const takePhoto = () => {
     if (!videoRef.current || isCurrentSubmitted) return;
+    
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
     
-    // Сжимаем до 800px для экономии памяти в стейте
+    // Оптимальный размер для хранения в памяти (Base64)
     const targetWidth = 800;
     const targetHeight = 1422;
     canvas.width = targetWidth;
     canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
 
+    // Логика обрезки под 9:16
     const vWidth = video.videoWidth;
     const vHeight = video.videoHeight;
     const targetRatio = targetWidth / targetHeight;
     const videoRatio = vWidth / vHeight;
-
     let sX, sY, sW, sH;
     if (videoRatio > targetRatio) {
         sH = vHeight; sW = vHeight * targetRatio;
@@ -470,14 +471,16 @@ const takePhoto = () => {
     }
 
     ctx.drawImage(video, sX, sY, sW, sH, 0, 0, targetWidth, targetHeight);
-    
-    // Сохраняем в стейт Base64 (миниатюры появятся сразу)
+
+    // СОХРАНЯЕМ ЛОКАЛЬНО (Base64) - это вернет миниатюры
     const photoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+    
     setParticipants(prev => prev.map(p => 
         p.id === activeCamera ? { ...p, photos: [...p.photos, photoBase64] } : p
     ));
     
     stopCamera();
+    showToast('Фото добавлено в черновик');
 };
 
 // Исправленная загрузка из галереи
@@ -506,7 +509,6 @@ const handleGalleryLocal = (e, participantId) => {
         reader.readAsDataURL(file);
     });
 };
-
             const stopCamera = () => {
                 if (stream) stream.getTracks().forEach(track => track.stop());
                 setStream(null);
