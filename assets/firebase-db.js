@@ -34,7 +34,6 @@ export const loginWithKey = async (inputKey, deviceId) => {
 
         // ПРОВЕРКА ПРИВЯЗКИ
         if (userData.deviceId && userData.deviceId !== deviceId) {
-            // Если в базе уже есть ID и он не совпадает с текущим
             return { 
                 success: false, 
                 error: "Этот ключ уже привязан к другому устройству!" 
@@ -58,7 +57,6 @@ export const loginWithKey = async (inputKey, deviceId) => {
     }
 };
 
-
 // 2. Обновление только имени и города
 export const updateJudgeProfile = async (key, name, city) => {
     try {
@@ -72,13 +70,12 @@ export const updateJudgeProfile = async (key, name, city) => {
     } catch (e) { return { success: false, error: e.message }; }
 };
 
-// 3// 3. Смена Ключа с защитой от дубликатов и проверкой длины
+// 3. Смена Ключа с защитой от дубликатов и проверкой длины
 export const changeJudgeKey = async (oldKey, newKey, name, city) => {
     try {
         const cleanedOld = clean(oldKey);
         const cleanedNew = clean(newKey);
 
-        // 1. Проверка на минимальную длину (например, 6 символов)
         if (cleanedNew.length < 6) {
             return { 
                 success: false, 
@@ -86,7 +83,6 @@ export const changeJudgeKey = async (oldKey, newKey, name, city) => {
             };
         }
 
-        // 2. Если пользователь ввел тот же самый ключ, просто обновляем имя/город
         if (cleanedOld === cleanedNew) {
             return await updateJudgeProfile(cleanedOld, name, city);
         }
@@ -94,7 +90,6 @@ export const changeJudgeKey = async (oldKey, newKey, name, city) => {
         const oldRef = doc(db, "judges", cleanedOld);
         const newRef = doc(db, "judges", cleanedNew);
 
-        // 3. ПРОВЕРКА: не занят ли новый ключ другим судьей
         const targetSnap = await getDoc(newRef);
         if (targetSnap.exists()) {
             return { 
@@ -103,13 +98,11 @@ export const changeJudgeKey = async (oldKey, newKey, name, city) => {
             };
         }
 
-        // 4. Получаем данные старого профиля
         const snap = await getDoc(oldRef);
         if (!snap.exists()) return { success: false, error: "Старый профиль не найден" };
         
         const oldData = snap.data();
 
-        // Формируем новые данные, сохраняя deviceId (привязку к устройству)
         const newData = {
             ...oldData,
             displayName: name || oldData.displayName,
@@ -117,7 +110,6 @@ export const changeJudgeKey = async (oldKey, newKey, name, city) => {
             updatedAt: serverTimestamp()
         };
 
-        // 5. Создаем новую запись и удаляем старую
         await setDoc(newRef, newData); 
         await deleteDoc(oldRef);      
         
@@ -126,4 +118,3 @@ export const changeJudgeKey = async (oldKey, newKey, name, city) => {
         return { success: false, error: "Ошибка при смене ключа: " + e.message }; 
     }
 };
-
