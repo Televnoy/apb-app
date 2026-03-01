@@ -34,13 +34,16 @@
     import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } from './assets/firebase-db.js';    
     window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
 
-    let deviceId = localStorage.getItem('app_device_id');
-    if (!deviceId) {
-        deviceId = 'dev_' + Math.random().toString(36).substr(2, 12) + Date.now();
-        localStorage.setItem('app_device_id', deviceId);
+    // Генерируем или достаем ID устройства
+    let dId = localStorage.getItem('app_device_id');
+    if (!dId) {
+        dId = 'dev_' + Math.random().toString(36).substr(2, 9) + Date.now();
+        localStorage.setItem('app_device_id', dId);
     }
-    window.deviceId = deviceId; // Обязательно для доступа из React
+    window.currentDeviceId = dId; // Сохраняем в window
+    console.log("Device ID initialized:", dId);
 </script>
+
 
     <!---->
 
