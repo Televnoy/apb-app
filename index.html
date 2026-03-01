@@ -347,67 +347,59 @@ const handleSaveSettings = async () => {
                 }
             };
 
-    // ОБНОВЛЕННЫЙ обработчик: сначала Storage, потом отчет
-            const handleSendReport = async () => {
-                if (submittedDisciplines.includes(discipline) || !isReadyToSave) return;
-                
-                showToast('Загружаем фото в облако...');
+   const handleSendReport = async () => {
+    if (isSubmitting) return; // Защита от двойного клика
+    setIsSubmitting(true);
+    showToast('Начинаем загрузку фото в облако...');
 
-                try {
-                    // 1. Создаем копию участников для модификации
-                    const finalParticipants = [];
+    try {
+        const finalParticipants = [];
 
-                    // Проходим циклом по участникам
-                    for (const p of participants) {
-                        const uploadedUrls = [];
-                        
-                        // Загружаем каждое фото этого участника в Storage
-                        for (const photoData of p.photos) {
-                            // Если это Base64 (начинается с data:), загружаем в Storage
-                            if (photoData.startsWith('data:')) {
-                                const fileName = `evals/${accessKey}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.jpg`;
-                                const downloadUrl = await window.api.uploadPhoto(photoData, fileName);
-                                uploadedUrls.push(downloadUrl);
-                            } else {
-                                // Если это уже ссылка (URL), оставляем как есть
-                                uploadedUrls.push(photoData);
-                            }
-                        }
-
-                        // Собираем участника с новыми ссылками на фото вместо Base64
-                        finalParticipants.push({
-                            ...p,
-                            photos: uploadedUrls
-                        });
-                    }
-
-                    // 2. Отправляем финальный очищенный отчет в Firestore
-                    await sendEvaluation({
-                        discipline: discipline,
-                        participants: finalParticipants,
-                        timestamp: new Date().toISOString()
-                    });
-
-                    // 3. Обновляем историю и статус (локально)
-                    const now = new Date();
-                    const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                    
-                    const newHistoryEntries = finalParticipants.map(p => ({
-                        date: timestamp,
-                        discipline: discipline,
-                        participantId: p.number,
-                        score: p.score
-                    }));
-                    
-                    setHistory(prev => [...newHistoryEntries, ...prev]);
-                    setSubmittedDisciplines(prev => [...prev, discipline]);
-                    showToast('Отчет и фото успешно отправлены');
-
-                } catch (e) {
-                    console.error("Ошибка при финальной отправке:", e);
-                    showToast('Ошибка при загрузке фото');
+        // Проходим по каждому участнику
+        for (const p of participants) {
+            const uploadedUrls = [];
+            
+            // Загружаем каждое фото этого участника
+            for (const photoData of p.photos) {
+                // Если фото уже URL (с http), пропускаем. Если Base64 (data:image), загружаем.
+                if (photoData.startsWith('http')) {
+                    uploadedUrls.push(photoData);
+                } else {
+                    const fileName = `evals/${accessKey}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.jpg`;
+                    // ВАЖНО: вызываем window.uploadPhoto, а не window.api.uploadPhoto
+                    const url = await window.uploadPhoto(photoData, fileName);
+                    uploadedUrls.push(url);
                 }
-            };
+            }
+
+            finalParticipants.push({
+                ...p,
+                photos: uploadedUrls
+            });
+        }
+
+        // Финальный объект для сохранения
+        const reportData = {
+            discipline: discipline,
+            participants: finalParticipants,
+            judgeName: judgeName,
+            timestamp: new Date().toISOString()
+        };
+
+        // ВАЖНО: вызываем window.saveEvaluation
+        const result = await window.saveEvaluation(reportData);
+
+        if (result.success) {
+            showToast('Отчет отправлен!');
+            setIsCurrentSubmitted(true);
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Ошибка при загрузке: ' + e.message);
+    } finally {
+        setIsSubmitting(false);
+    }
+};
 
 
             const startCamera = async (id) => {
@@ -483,31 +475,64 @@ const takePhoto = () => {
     showToast('Фото добавлено в черновик');
 };
 
-// Исправленная загрузка из галереи
-const handleGalleryLocal = (e, participantId) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (re) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                const scale = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scale;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                const compressed = canvas.toDataURL('image/jpeg', 0.7);
-                setParticipants(prev => prev.map(p => 
-                    p.id === participantId ? { ...p, photos: [...p.photos, compressed] } : p
-                ));
-            };
-            img.src = re.target.result;
+const handleSendReport = async () => {
+    // 1. Защита от повторного нажатия
+    if (isSubmitting) return; 
+    setIsSubmitting(true);
+    showToast('Начинаем загрузку фото...');
+
+    try {
+        const finalParticipants = [];
+
+        // 2. Проходим по каждому участнику
+        for (const p of participants) {
+            const uploadedUrls = [];
+            
+            // Загружаем каждое фото этого участника в облако
+            for (const photoData of p.photos) {
+                // Если фото — это Base64 (начинается с data:), значит оно новое и его надо грузить
+                if (photoData.startsWith('data:')) {
+                    const fileName = `evals/${accessKey}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.jpg`;
+                    
+                    // Вызываем функцию, которую мы "пробросили" в window из firebase-db.js
+                    const url = await window.uploadPhoto(photoData, fileName);
+                    uploadedUrls.push(url);
+                } else {
+                    // Если это уже ссылка (http...), значит фото старое/уже загружено
+                    uploadedUrls.push(photoData);
+                }
+            }
+
+            // Добавляем участника с уже готовыми ссылками
+            finalParticipants.push({
+                ...p,
+                photos: uploadedUrls
+            });
+        }
+
+        // 3. Собираем итоговый отчет
+        const reportData = {
+            discipline: discipline, // Убедитесь, что эта переменная доступна
+            participants: finalParticipants,
+            judgeName: judgeName,   // Убедитесь, что эта переменная доступна
+            timestamp: new Date().toISOString()
         };
-        reader.readAsDataURL(file);
-    });
+
+        // 4. Отправляем в базу
+        const result = await window.saveEvaluation(reportData);
+
+        if (result.success) {
+            showToast('Отчет и фото успешно отправлены!');
+            setIsCurrentSubmitted(true); // Блокируем дальнейшее редактирование
+        } else {
+            throw new Error(result.error || "Ошибка сохранения");
+        }
+    } catch (e) {
+        console.error("Ошибка при отправке:", e);
+        showToast('Ошибка: ' + e.message);
+    } finally {
+        setIsSubmitting(false);
+    }
 };
             const stopCamera = () => {
                 if (stream) stream.getTracks().forEach(track => track.stop());
