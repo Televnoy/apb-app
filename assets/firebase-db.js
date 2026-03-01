@@ -152,3 +152,6 @@ export const uploadPhoto = async (base64Data, path) => {
         throw e;
     }
 };
+// Регистрируем функции в глобальном объекте window, чтобы index.html их видел
+window.uploadPhoto = uploadPhoto;
+window.saveEvaluation = saveEvaluation;
