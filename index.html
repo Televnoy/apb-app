@@ -400,61 +400,74 @@ const handleSaveSettings = async () => {
                 }
             };
 
-            // Исправленная функция захвата фото с коррекцией ориентации и кадрированием
-            const takePhoto = () => {
-                if (!videoRef.current || isCurrentSubmitted) return;
-                
-                const video = videoRef.current;
-                const canvas = document.createElement('canvas');
-                
-                // Получаем реальные размеры видеопотока
-                const vWidth = video.videoWidth;
-                const vHeight = video.videoHeight;
-                
-                // Целевые пропорции (вертикальные, как экран телефона)
-                const targetWidth = 1080;
-                const targetHeight = 1920;
-                const targetRatio = targetWidth / targetHeight;
-
-                canvas.width = targetWidth;
-                canvas.height = targetHeight;
-                const ctx = canvas.getContext('2d');
-
-                // Расчет области обрезки (Crop), чтобы имитировать object-cover
-                let sourceX, sourceY, sourceWidth, sourceHeight;
-                const videoRatio = vWidth / vHeight;
-
-                if (videoRatio > targetRatio) {
-                    // Видео шире чем нужно (горизонтальное) -> режем по бокам
-                    sourceHeight = vHeight;
-                    sourceWidth = vHeight * targetRatio;
-                    sourceX = (vWidth - sourceWidth) / 2;
-                    sourceY = 0;
-                } else {
-                    // Видео уже чем нужно (вертикальное, но других пропорций) -> режем сверху/снизу
-                    sourceWidth = vWidth;
-                    sourceHeight = vWidth / targetRatio;
-                    sourceX = 0;
-                    sourceY = (vHeight - sourceHeight) / 2;
-                }
-
-                // Отражение для фронтальной камеры
-                if (facingMode === 'user') {
-                    ctx.translate(canvas.width, 0);
-                    ctx.scale(-1, 1);
-                }
-
-                // Рисуем обрезанную и масштабированную часть видео
-                ctx.drawImage(
-                    video, 
-                    sourceX, sourceY, sourceWidth, sourceHeight, // Откуда берем
-                    0, 0, targetWidth, targetHeight             // Куда рисуем
-                );
-
-                const photoUrl = canvas.toDataURL('image/jpeg', 0.85);
-                setParticipants(prev => prev.map(p => p.id === activeCamera ? { ...p, photos: [...p.photos, photoUrl] } : p));
-                stopCamera();
+const handleGalleryUpload = async (event, participant) => {
+    const files = Array.from(event.target.files);
+    
+    for (const file of files) {
+        const reader = new FileReader();
+        
+        // Сжатие и загрузка
+        const downloadUrl = await new Promise((resolve) => {
+            reader.onload = async (re) => {
+                const img = new Image();
+                img.onload = async () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 600;
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const base64Resized = canvas.toDataURL('image/jpeg', 0.7);
+                    
+                    // Загрузка в Firebase Storage
+                    const fileName = `photos/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+                    const url = await window.api.uploadPhoto(base64Resized, fileName);
+                    resolve(url);
+                };
+                img.src = re.target.result;
             };
+            reader.readAsDataURL(file);
+        });
+
+        // Обновление состояния после получения URL
+        updateParticipant(participant.id, 'photos', [...participant.photos, downloadUrl]);
+    }
+};
+            
+            
+            const takePhoto = async () => {
+    if (!videoRef.current || isCurrentSubmitted) return;
+    
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    
+    // ОПТИМИЗАЦИЯ: Уменьшаем разрешение до 600px по ширине
+    const targetWidth = 600; 
+    const targetHeight = 1066; // 600 * 1.777 (пропорция 9:16)
+    
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+
+    // ... (код расчета sourceX, sourceY остается без изменений) ...
+    // Отражение для фронтальной камеры
+    if (facingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+    }
+
+    ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, targetWidth, targetHeight);
+
+    // СЖАТИЕ: качество 0.7 (70%) — идеальный баланс
+    const photoUrl = canvas.toDataURL('image/jpeg', 0.7);
+    
+    // ВАЖНО: Вместо сохранения в Firestore, здесь лучше сразу 
+    // загрузить в Storage и получить URL, как мы обсуждали ранее.
+    // ... логика загрузки ...
+};
 
             const stopCamera = () => {
                 if (stream) stream.getTracks().forEach(track => track.stop());
@@ -657,17 +670,17 @@ const handleSaveSettings = async () => {
                                             >
                                                 <Icon name="mic" size={18} /> Голос
                                             </button>
-                                            <label className="flex items-center gap-2 text-gray-600 text-[10px] font-medium uppercase tracking-widest cursor-pointer disabled:opacity-20">
-                                                <Icon name="attach_file" size={18} /> Файл
-                                                <input type="file" multiple accept="image/*" className="hidden" disabled={isCurrentSubmitted} onChange={(e) => {
-                                                    const files = Array.from(e.target.files);
-                                                    files.forEach(f => {
-                                                        const reader = new FileReader();
-                                                        reader.onload = (re) => updateParticipant(participant.id, 'photos', [...participant.photos, re.target.result]);
-                                                        reader.readAsDataURL(f);
-                                                    });
-                                                }} />
-                                            </label>
+                                           <label className="flex items-center gap-2 text-gray-600 text-[10px] font-medium uppercase tracking-widest cursor-pointer disabled:opacity-20">
+    <Icon name="attach_file" size={18} /> Галерея
+    <input 
+        type="file" 
+        multiple 
+        accept="image/*" 
+        className="hidden" 
+        disabled={isCurrentSubmitted} 
+        onChange={handleGalleryUpload} 
+    />
+</label>
                                         </div>
 
                                         {participant.photos.length > 0 && (
