@@ -118,3 +118,13 @@ export const changeJudgeKey = async (oldKey, newKey, name, city) => {
         return { success: false, error: "Ошибка при смене ключа: " + e.message }; 
     }
 };
+// ... (оставьте весь ваш код Firebase без изменений до самого низа)
+
+// В самом конце файла добавьте это:
+window.firebaseAPI = {
+    loginWithKey,
+    updateJudgeProfile,
+    saveEvaluation,
+    changeJudgeKey
+};
+
