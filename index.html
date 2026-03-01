@@ -424,61 +424,54 @@ const takePhoto = () => {
 };
 
 const handleSendReport = async () => {
-    // 1. Защита от повторного нажатия и от повторной отправки уже отправленного отчета
-    if (isSubmitting || isCurrentSubmitted) return; 
-    
+    if (isSubmitting || isCurrentSubmitted) return;
     setIsSubmitting(true);
-    showToast('Начинаем загрузку фото в облако...');
+    showToast('Начинаем загрузку всех фото и отправку отчета...');
 
     try {
         const finalParticipants = [];
 
-        // 2. Проходим по каждому участнику
+        // 1. Проходим по всем участникам
         for (const p of participants) {
             const uploadedUrls = [];
             
-            // Загружаем каждое фото этого участника в облако
+            // 2. Проходим по всем фото
             for (const photoData of p.photos) {
-                // Если фото — это Base64 (начинается с data:), значит оно новое и его надо грузить
-                if (photoData && photoData.startsWith('data:')) {
+                // Если фото — Base64 (начинается с data:), значит оно новое и не загружено
+                if (photoData.startsWith('data:')) {
                     const fileName = `evals/${accessKey}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.jpg`;
                     
-                    // Вызываем функцию window.uploadPhoto (проброшенную из firebase-db.js)
-                    const url = await window.uploadPhoto(photoData, fileName);
+                    // ЗАГРУЗКА ПРОИСХОДИТ ТОЛЬКО ЗДЕСЬ
+                    const url = await window.api.uploadPhoto(photoData, fileName);
                     uploadedUrls.push(url);
                 } else {
-                    // Если это уже ссылка (http...), значит фото старое/уже загружено
+                    // Если это уже URL, просто добавляем
                     uploadedUrls.push(photoData);
                 }
             }
 
-            // Добавляем участника с уже готовыми ссылками
-            finalParticipants.push({
-                ...p,
-                photos: uploadedUrls
-            });
+            finalParticipants.push({ ...p, photos: uploadedUrls });
         }
 
-        // 3. Собираем итоговый отчет
+        // 3. Отправка итогового JSON в Firestore
         const reportData = {
-            discipline: discipline, 
+            discipline,
             participants: finalParticipants,
-            judgeName: judgeName,  
+            judgeName,
             timestamp: new Date().toISOString()
         };
 
-        // 4. Отправляем в базу через глобальную функцию
-        const result = await window.saveEvaluation(reportData);
+        const result = await window.api.saveEvaluation(reportData);
 
         if (result.success) {
-            showToast('Отчет и фото успешно отправлены!');
-            setIsCurrentSubmitted(true); // Блокируем дальнейшее редактирование и отправку
+            showToast('Отчет и все фото успешно отправлены!');
+            setIsCurrentSubmitted(true); // Блокируем кнопку
         } else {
-            throw new Error(result.error || "Ошибка сохранения");
+            throw new Error(result.error);
         }
     } catch (e) {
-        console.error("Ошибка при отправке:", e);
-        showToast('Ошибка при отправке: ' + e.message);
+        console.error(e);
+        showToast('Ошибка: ' + e.message);
     } finally {
         setIsSubmitting(false);
     }
