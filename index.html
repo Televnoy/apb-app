@@ -237,6 +237,7 @@
 const deviceId = localStorage.getItem('app_device_id') || 'dev_' + Math.random().toString(36).substr(2, 9);
 if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id', deviceId);
             
+// --- Измененный handleAuth ---
 const handleAuth = async () => {
     setAuthError(null);
     if (!accessKey) {
@@ -245,17 +246,17 @@ const handleAuth = async () => {
     }
 
     try {
+        // window.deviceId берется из скрипта в head
         const result = await window.api.loginWithKey(accessKey, window.deviceId);
 
         if (result.success) {
-            // Если в базе уже есть имя/город, берем их, если нет — используем введенные
-            const finalName = result.user?.displayName || tempJudgeName || 'Судья';
-            const finalCity = result.user?.city || selectedCity || 'Москва';
+            // ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ ГОРОДА И ИМЕНИ:
+            // Берем то, что ввел юзер прямо сейчас, либо оставляем старое из БД
+            const finalName = tempJudgeName || result.user?.displayName || 'Судья';
+            const finalCity = selectedCity || result.user?.city || 'Москва';
 
-            // Если в базе было пусто, сохраняем туда то, что ввел пользователь при входе
-            if (!result.user?.displayName || !result.user?.city) {
-                await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
-            }
+            // Отправляем актуальные данные в БД при каждом входе
+            await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
 
             setJudgeName(finalName);
             setEventCity(finalCity);
@@ -264,31 +265,34 @@ const handleAuth = async () => {
             const profileData = { name: finalName, key: accessKey, city: finalCity };
             localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
         } else {
-            setAuthError(result.error);
+            setAuthError(result.error); // Тут покажется ошибка про другое устройство
         }
     } catch (err) {
         setAuthError('Ошибка соединения');
     }
 };
-//__________________________________________
+
+// --- Измененный handleSaveSettings ---
 const handleSaveSettings = async () => {
+    // Валидация на длину перед отправкой
+    if (editAccessKey.length < 6) {
+        showToast('Пароль: минимум 6 знаков');
+        return;
+    }
+
     try {
         let result;
-        // 1. Проверяем, изменился ли ключ (пароль)
         if (editAccessKey !== accessKey) {
-            // Если ключ новый, вызываем перенос данных
+            // Смена ключа с проверкой уникальности в БД
             result = await window.api.changeJudgeKey(accessKey, editAccessKey, editJudgeName, eventCity);
         } else {
-            // Если ключ тот же, просто обновляем имя и город
             result = await window.api.updateJudgeProfile(accessKey, editJudgeName, eventCity);
         }
 
         if (result && result.success) {
-            // Обновляем состояние в приложении
             setAccessKey(editAccessKey);
             setJudgeName(editJudgeName);
             
-            // Сохраняем в память браузера
             const newProfile = { name: editJudgeName, key: editAccessKey, city: eventCity };
             localStorage.setItem('judging_app_v5_profile', JSON.stringify(newProfile));
             
@@ -298,8 +302,7 @@ const handleSaveSettings = async () => {
             showToast(result?.error || 'Ошибка сохранения');
         }
     } catch (e) {
-        console.error("Ошибка в handleSaveSettings:", e);
-        showToast('Системная ошибка: проверьте консоль');
+        showToast('Системная ошибка');
     }
 };
             const participants = allData[discipline] || [{ id: '1', number: '00', comment: '', photos: [], score: null }];
