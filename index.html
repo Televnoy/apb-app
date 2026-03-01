@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -307,39 +305,7 @@
 const deviceId = localStorage.getItem('app_device_id') || 'dev_' + Math.random().toString(36).substr(2, 9);
 if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id', deviceId);
             
-const handleAuth = async () => {
-    setAuthError(null);
-    if (!accessKey) {
-        setAuthError('Введите ключ доступа');
-        return;
-    }
 
-    try {
-        const result = await window.api.loginWithKey(accessKey, window.deviceId);
-
-        if (result.success) {
-            // Если в базе уже есть имя/город, берем их, если нет — используем введенные
-            const finalName = result.user?.displayName || tempJudgeName || 'Судья';
-            const finalCity = result.user?.city || selectedCity || 'Москва';
-
-            // Если в базе было пусто, сохраняем туда то, что ввел пользователь при входе
-            if (!result.user?.displayName || !result.user?.city) {
-                await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
-            }
-
-            setJudgeName(finalName);
-            setEventCity(finalCity);
-            setIsAuthenticated(true);
-
-            const profileData = { name: finalName, key: accessKey, city: finalCity };
-            localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
-        } else {
-            setAuthError(result.error);
-        }
-    } catch (err) {
-        setAuthError('Ошибка соединения');
-    }
-};
 //__________________________________________
 const handleAuth = async () => {
     setAuthError(null);
