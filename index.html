@@ -347,61 +347,6 @@ const handleSaveSettings = async () => {
                 }
             };
 
-   const handleSendReport = async () => {
-    if (isSubmitting) return; // Защита от двойного клика
-    setIsSubmitting(true);
-    showToast('Подготовка отчета...');
-
-    try {
-        const finalParticipants = [];
-
-        // Проходим по каждому участнику
-        for (const p of participants) {
-            const uploadedUrls = [];
-            
-            // Загружаем каждое фото этого участника
-            for (const photoData of p.photos) {
-                // Если фото уже URL (с http), пропускаем. Если Base64 (data:image), загружаем.
-                if (photoData.startsWith('http')) {
-                    uploadedUrls.push(photoData);
-                } else {
-                    const fileName = `evals/${accessKey}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.jpg`;
-                    // ВАЖНО: вызываем window.uploadPhoto, а не window.api.uploadPhoto
-                    const url = await window.uploadPhoto(photoData, fileName);
-                    uploadedUrls.push(url);
-                }
-            }
-
-            finalParticipants.push({
-                ...p,
-                photos: uploadedUrls
-            });
-        }
-
-        // Финальный объект для сохранения
-        const reportData = {
-            discipline: discipline,
-            participants: finalParticipants,
-            judgeName: judgeName,
-            timestamp: new Date().toISOString()
-        };
-
-        // ВАЖНО: вызываем window.saveEvaluation
-        const result = await window.saveEvaluation(reportData);
-
-        if (result.success) {
-            showToast('Отчет отправлен!');
-            setIsCurrentSubmitted(true);
-        }
-    } catch (e) {
-        console.error(e);
-        showToast('Ошибка при загрузке: ' + e.message);
-    } finally {
-        setIsSubmitting(false);
-    }
-};
-
-
             const startCamera = async (id) => {
                 if (isCurrentSubmitted) return;
                 setActiveCamera(id);
