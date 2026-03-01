@@ -347,31 +347,66 @@ const handleSaveSettings = async () => {
                 }
             };
 
-            // Обновленный обработчик нажатия кнопки
+    // ОБНОВЛЕННЫЙ обработчик: сначала Storage, потом отчет
             const handleSendReport = async () => {
-                if (submittedDisciplines.includes(discipline)) return;
-
-                // 1. Отправляем в базу данных
-                await sendEvaluation({
-                    discipline: discipline,
-                    participants: participants,
-                    timestamp: new Date().toISOString()
-                });
-
-                // 2. Обновляем локальный статус (то, что было у тебя)
-                const now = new Date();
-                const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                if (submittedDisciplines.includes(discipline) || !isReadyToSave) return;
                 
-                const newHistoryEntries = participants.map(p => ({
-                    date: timestamp,
-                    discipline: discipline,
-                    participantId: p.number,
-                    score: p.score
-                }));
-                
-                setHistory(prev => [...newHistoryEntries, ...prev]);
-                setSubmittedDisciplines(prev => [...prev, discipline]);
-                showToast('Отчет успешно отправлен');
+                showToast('Загружаем фото в облако...');
+
+                try {
+                    // 1. Создаем копию участников для модификации
+                    const finalParticipants = [];
+
+                    // Проходим циклом по участникам
+                    for (const p of participants) {
+                        const uploadedUrls = [];
+                        
+                        // Загружаем каждое фото этого участника в Storage
+                        for (const photoData of p.photos) {
+                            // Если это Base64 (начинается с data:), загружаем в Storage
+                            if (photoData.startsWith('data:')) {
+                                const fileName = `evals/${accessKey}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.jpg`;
+                                const downloadUrl = await window.api.uploadPhoto(photoData, fileName);
+                                uploadedUrls.push(downloadUrl);
+                            } else {
+                                // Если это уже ссылка (URL), оставляем как есть
+                                uploadedUrls.push(photoData);
+                            }
+                        }
+
+                        // Собираем участника с новыми ссылками на фото вместо Base64
+                        finalParticipants.push({
+                            ...p,
+                            photos: uploadedUrls
+                        });
+                    }
+
+                    // 2. Отправляем финальный очищенный отчет в Firestore
+                    await sendEvaluation({
+                        discipline: discipline,
+                        participants: finalParticipants,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    // 3. Обновляем историю и статус (локально)
+                    const now = new Date();
+                    const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                    
+                    const newHistoryEntries = finalParticipants.map(p => ({
+                        date: timestamp,
+                        discipline: discipline,
+                        participantId: p.number,
+                        score: p.score
+                    }));
+                    
+                    setHistory(prev => [...newHistoryEntries, ...prev]);
+                    setSubmittedDisciplines(prev => [...prev, discipline]);
+                    showToast('Отчет и фото успешно отправлены');
+
+                } catch (e) {
+                    console.error("Ошибка при финальной отправке:", e);
+                    showToast('Ошибка при загрузке фото');
+                }
             };
 
 
