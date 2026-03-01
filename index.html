@@ -154,6 +154,7 @@
         );
 
         function App() {
+            const [deletingPhoto, setDeletingPhoto] = React.useState(null); // {partId, index}
             const [loading, setLoading] = useState(true);
             const [isAuthenticated, setIsAuthenticated] = useState(false);
             const [authStep, setAuthStep] = useState(1); 
@@ -438,21 +439,19 @@ const handleGalleryUpload = async (event, participant) => {
 };
             
             
-const takePhoto = async () => {
+// Исправленный захват фото (БЕЗ мгновенной загрузки в FB)
+const takePhoto = () => {
     if (!videoRef.current || isCurrentSubmitted) return;
-    
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
     
-    // Оптимальный размер (меньше оригинального для экономии места)
+    // Сжимаем до 800px для экономии памяти в стейте
     const targetWidth = 800;
     const targetHeight = 1422;
-    
     canvas.width = targetWidth;
     canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
 
-    // Логика обрезки (Crop)
     const vWidth = video.videoWidth;
     const vHeight = video.videoHeight;
     const targetRatio = targetWidth / targetHeight;
@@ -473,28 +472,41 @@ const takePhoto = async () => {
     }
 
     ctx.drawImage(video, sX, sY, sW, sH, 0, 0, targetWidth, targetHeight);
+    
+    // Сохраняем в стейт Base64 (миниатюры появятся сразу)
+    const photoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+    setParticipants(prev => prev.map(p => 
+        p.id === activeCamera ? { ...p, photos: [...p.photos, photoBase64] } : p
+    ));
+    
+    stopCamera();
+};
 
-    try {
-        const photoUrlBase64 = canvas.toDataURL('image/jpeg', 0.7);
-        showToast('Загрузка в облако...');
-        
-        // Генерация имени файла
-        const fileName = `photos/${Date.now()}_camera.jpg`;
-        
-        // ВАЖНО: Эта функция должна быть в firebase-db.js!
-        const downloadUrl = await window.api.uploadPhoto(photoUrlBase64, fileName);
-        
-        // Обновляем состояние через функциональный апдейт, чтобы не потерять фото
-        setParticipants(prev => prev.map(p => 
-            p.id === activeCamera ? { ...p, photos: [...p.photos, downloadUrl] } : p
-        ));
-        
-        stopCamera();
-        showToast('Фото сохранено');
-    } catch (err) {
-        console.error(err);
-        showToast('Ошибка: проверьте firebase-db.js');
-    }
+// Исправленная галерея (БЕЗ мгновенной загрузки)
+const handleGalleryUpload = (e, partId) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (re) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const scale = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                setParticipants(prev => prev.map(p => 
+                    p.id === partId ? { ...p, photos: [...p.photos, compressed] } : p
+                ));
+            };
+            img.src = re.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
 };
 
             const stopCamera = () => {
@@ -756,10 +768,39 @@ const takePhoto = async () => {
                                         </div>
 
                                         {participant.photos.length > 0 && (
-                                            <div className="flex gap-2 overflow-x-auto no-scrollbar pt-1">
-                                                {participant.photos.map((p, i) => <img key={i} src={p} className="w-12 h-12 rounded-lg object-cover border border-gray-50 flex-shrink-0" alt="" />)}
-                                            </div>
-                                        )}
+    <div className="flex gap-2 overflow-x-auto no-scrollbar pt-1">
+        {participant.photos.map((p, i) => (
+            <div 
+                key={i} 
+                className="relative flex-shrink-0"
+                onContextMenu={(e) => { e.preventDefault(); setDeletingPhoto({partId: participant.id, idx: i}); }}
+                onTouchStart={() => {
+                    window.longPressTimer = setTimeout(() => setDeletingPhoto({partId: participant.id, idx: i}), 600);
+                }}
+                onTouchEnd={() => clearTimeout(window.longPressTimer)}
+            >
+                <img src={p} className="w-12 h-12 rounded-lg object-cover border border-gray-50" alt="" />
+                
+                {/* Оверлей удаления */}
+                {deletingPhoto?.partId === participant.id && deletingPhoto?.idx === i && (
+                    <div 
+                        className="absolute inset-0 bg-red-500/80 rounded-lg flex items-center justify-center text-white"
+                        onClick={() => {
+                            setParticipants(prev => prev.map(part => 
+                                part.id === participant.id 
+                                ? { ...part, photos: part.photos.filter((_, photoIdx) => photoIdx !== i) } 
+                                : part
+                            ));
+                            setDeletingPhoto(null);
+                        }}
+                    >
+                        <Icon name="close" size={20} />
+                    </div>
+                )}
+            </div>
+        ))}
+    </div>
+)}
                                     </div>
                                 </div>
                             );
