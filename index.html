@@ -31,18 +31,37 @@
 
     <!---->
     <script type="module">
-    import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } from './assets/firebase-db.js';    
-    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
+    // Пробуем импортировать. Если файл не найден — выводим ошибку в консоль
+    try {
+        const { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } = await import('./assets/firebase-db.js');
+        window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
+        console.log("API успешно загружено");
+    } catch (e) {
+        console.error("КРИТИЧЕСКАЯ ОШИБКА: Не удалось загрузить firebase-db.js. Проверь путь!");
+        document.body.innerHTML = "<h2 style='color:red; padding: 20px;'>Ошибка загрузки скрипта. Проверь путь к firebase-db.js</h2>";
+    }
 
-    // Генерируем или достаем ID устройства
+    // Инициализация ID (вынесена отдельно)
     let dId = localStorage.getItem('app_device_id');
     if (!dId) {
-        dId = 'dev_' + Math.random().toString(36).substr(2, 9) + Date.now();
+        dId = 'dev_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('app_device_id', dId);
     }
-    window.currentDeviceId = dId; // Сохраняем в window
-    console.log("Device ID initialized:", dId);
+    window.currentDeviceId = dId;
+
+    // ... далее идет ваш const App = () => { ...
+    // ... ваш код компонентов ...
+
+    // Рендеринг с защитой от ошибок
+    try {
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    } catch (e) {
+        console.error("Ошибка рендеринга React:", e);
+        document.body.innerHTML = "<h2 style='color:red; padding: 20px;'>Ошибка рендеринга. Проверь консоль (F12).</h2>";
+    }
 </script>
+
 
 
     <!---->
