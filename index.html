@@ -27,7 +27,38 @@
     <!-- Dependencies -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+    // Мы используем type="text/babel", чтобы Babel прочитал JSX (<App />)
+    // Мы не используем type="module" здесь, чтобы избежать конфликтов
+    
+    (async () => {
+        try {
+            // Динамический импорт Firebase
+            const api = await import('./assets/firebase-db.js');
+            window.api = api;
+            console.log("Модуль Firebase успешно загружен");
+
+            // Инициализация ID устройства
+            let dId = localStorage.getItem('app_device_id');
+            if (!dId) {
+                dId = 'dev_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('app_device_id', dId);
+            }
+            window.currentDeviceId = dId;
+
+            // Рендеринг React (теперь Babel переведет это в JS)
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<App />); 
+            
+        } catch (err) {
+            console.error("Критическая ошибка:", err);
+            document.body.innerHTML = "<h1>Ошибка: " + err.message + "</h1>";
+        }
+    })();
+</script>
+>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
