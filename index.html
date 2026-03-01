@@ -32,16 +32,16 @@
     <!---->
     <script type="module">
     import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } from './assets/firebase-db.js';    
-    // Делаем функции доступными для React-компонентов
     window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
-    // Генерируем ID устройства при первом запуске
+
     let deviceId = localStorage.getItem('app_device_id');
     if (!deviceId) {
-        deviceId = 'dev_' + Math.random().toString(36).substr(2, 9);
+        deviceId = 'dev_' + Math.random().toString(36).substr(2, 12) + Date.now();
         localStorage.setItem('app_device_id', deviceId);
     }
-    window.deviceId = deviceId; // Сохраняем в глобальную область для использования в React
-    </script>
+    window.deviceId = deviceId; // Обязательно для доступа из React
+</script>
+
     <!---->
 
     
@@ -807,23 +807,6 @@ const handleSaveSettings = async () => {
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
-    <script type="module">
-        // 1. Сначала ИМПОРТИРУЕМ все функции из файла
-        import { 
-            loginWithKey, 
-            updateJudgeProfile, 
-            saveEvaluation, 
-            changeJudgeKey // <-- ПРОВЕРЬТЕ: ЭТА СТРОЧКА ДОЛЖНА БЫТЬ ТУТ
-        } from './assets/firebase-db.js';
-
-        // 2. Затем СОЗДАЕМ МОСТИК для React
-        window.api = { 
-            loginWithKey, 
-            updateJudgeProfile, 
-            saveEvaluation, 
-            changeJudgeKey // <-- И ТУТ ТОЖЕ
-        };
-
-        // ... дальше идет ваш код React (const App = () => { ... })
+     
 </body>
 </html>
