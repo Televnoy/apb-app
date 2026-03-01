@@ -1,4 +1,3 @@
-import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
     getFirestore, doc, getDoc, updateDoc, collection, addDoc, 
@@ -101,13 +100,16 @@ export const saveEvaluation = async (data) => {
         return { success: true };
     } catch (e) { return { success: false, error: e.message }; }
 };
+
+// Добавь это в конец firebase-db.js
+import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
 const storage = getStorage(app);
 
-// Новая функция для загрузки фото
 export const uploadPhoto = async (base64Data, path) => {
     const storageRef = ref(storage, path);
-    // Загружаем Base64 как строку
+    // Загружаем как Data URL (Base64)
     await uploadString(storageRef, base64Data, 'data_url');
-    // Получаем прямую публичную ссылку
+    // Возвращаем ссылку
     return await getDownloadURL(storageRef);
 };
