@@ -72,32 +72,58 @@ export const updateJudgeProfile = async (key, name, city) => {
     } catch (e) { return { success: false, error: e.message }; }
 };
 
-// 3. Смена Ключа (перенос документа)
+// 3// 3. Смена Ключа с защитой от дубликатов и проверкой длины
 export const changeJudgeKey = async (oldKey, newKey, name, city) => {
     try {
-        const oldRef = doc(db, "judges", clean(oldKey));
-        const newRef = doc(db, "judges", clean(newKey));
+        const cleanedOld = clean(oldKey);
+        const cleanedNew = clean(newKey);
+
+        // 1. Проверка на минимальную длину (например, 6 символов)
+        if (cleanedNew.length < 6) {
+            return { 
+                success: false, 
+                error: "Ключ слишком короткий! Придумайте пароль от 6 символов и более." 
+            };
+        }
+
+        // 2. Если пользователь ввел тот же самый ключ, просто обновляем имя/город
+        if (cleanedOld === cleanedNew) {
+            return await updateJudgeProfile(cleanedOld, name, city);
+        }
+
+        const oldRef = doc(db, "judges", cleanedOld);
+        const newRef = doc(db, "judges", cleanedNew);
+
+        // 3. ПРОВЕРКА: не занят ли новый ключ другим судьей
+        const targetSnap = await getDoc(newRef);
+        if (targetSnap.exists()) {
+            return { 
+                success: false, 
+                error: "Этот ключ уже используется! Пожалуйста, создайте уникальный пароль." 
+            };
+        }
+
+        // 4. Получаем данные старого профиля
         const snap = await getDoc(oldRef);
-        
         if (!snap.exists()) return { success: false, error: "Старый профиль не найден" };
         
+        const oldData = snap.data();
+
+        // Формируем новые данные, сохраняя deviceId (привязку к устройству)
         const newData = {
-            ...snap.data(),
-            displayName: name,
-            city: city,
+            ...oldData,
+            displayName: name || oldData.displayName,
+            city: city || oldData.city,
             updatedAt: serverTimestamp()
         };
 
-        await setDoc(newRef, newData); // Создаем новый документ
-        await deleteDoc(oldRef);      // Удаляем старый
+        // 5. Создаем новую запись и удаляем старую
+        await setDoc(newRef, newData); 
+        await deleteDoc(oldRef);      
+        
         return { success: true };
-    } catch (e) { return { success: false, error: e.message }; }
+    } catch (e) { 
+        return { success: false, error: "Ошибка при смене ключа: " + e.message }; 
+    }
 };
 
-// 4. Сохранение оценки
-export const saveEvaluation = async (data) => {
-    try {
-        await addDoc(collection(db, "evaluations"), { ...data, createdAt: serverTimestamp() });
-        return { success: true };
-    } catch (e) { return { success: false, error: e.message }; }
-};
