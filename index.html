@@ -444,15 +444,15 @@ const takePhoto = async () => {
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
     
-    // Те же размеры, что ты использовал, но чуть меньше для экономии
-    const targetWidth = 800; 
-    const targetHeight = 1422; // Пропорция 9:16
+    // Оптимальный размер (меньше оригинального для экономии места)
+    const targetWidth = 800;
+    const targetHeight = 1422;
     
     canvas.width = targetWidth;
     canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
 
-    // Логика обрезки (Crop) как в твоем исходном коде
+    // Логика обрезки (Crop)
     const vWidth = video.videoWidth;
     const vHeight = video.videoHeight;
     const targetRatio = targetWidth / targetHeight;
@@ -460,15 +460,11 @@ const takePhoto = async () => {
 
     let sX, sY, sW, sH;
     if (videoRatio > targetRatio) {
-        sH = vHeight;
-        sW = vHeight * targetRatio;
-        sX = (vWidth - sW) / 2;
-        sY = 0;
+        sH = vHeight; sW = vHeight * targetRatio;
+        sX = (vWidth - sW) / 2; sY = 0;
     } else {
-        sW = vWidth;
-        sH = vWidth / targetRatio;
-        sX = 0;
-        sY = (vHeight - sH) / 2;
+        sW = vWidth; sH = vWidth / targetRatio;
+        sX = 0; sY = (vHeight - sH) / 2;
     }
 
     if (facingMode === 'user') {
@@ -479,20 +475,25 @@ const takePhoto = async () => {
     ctx.drawImage(video, sX, sY, sW, sH, 0, 0, targetWidth, targetHeight);
 
     try {
-        const photoUrlBase64 = canvas.toDataURL('image/jpeg', 0.7); // Сжимаем до 70%
-        showToast('Загрузка фото...');
+        const photoUrlBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        showToast('Загрузка в облако...');
         
-        // Загружаем в облако
+        // Генерация имени файла
         const fileName = `photos/${Date.now()}_camera.jpg`;
+        
+        // ВАЖНО: Эта функция должна быть в firebase-db.js!
         const downloadUrl = await window.api.uploadPhoto(photoUrlBase64, fileName);
         
-        // Обновляем участника (activeCamera — это ID текущего участника)
-        updateParticipant(activeCamera, 'photos', [...participants.find(p => p.id === activeCamera).photos, downloadUrl]);
+        // Обновляем состояние через функциональный апдейт, чтобы не потерять фото
+        setParticipants(prev => prev.map(p => 
+            p.id === activeCamera ? { ...p, photos: [...p.photos, downloadUrl] } : p
+        ));
         
         stopCamera();
+        showToast('Фото сохранено');
     } catch (err) {
         console.error(err);
-        showToast('Ошибка при сохранении фото');
+        showToast('Ошибка: проверьте firebase-db.js');
     }
 };
 
@@ -707,7 +708,9 @@ const takePhoto = async () => {
         disabled={isCurrentSubmitted} 
         onChange={async (e) => {
             const files = Array.from(e.target.files);
-            showToast(`Загрузка ${files.length} фото...`);
+            if (files.length === 0) return;
+            
+            showToast(`Сжимаем ${files.length} фото...`);
             
             for (const file of files) {
                 const reader = new FileReader();
@@ -720,23 +723,33 @@ const takePhoto = async () => {
                             const scale = MAX_WIDTH / img.width;
                             canvas.width = MAX_WIDTH;
                             canvas.height = img.height * scale;
-                            
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                             
                             const compressed = canvas.toDataURL('image/jpeg', 0.7);
-                            const fileName = `photos/${Date.now()}_gallery.jpg`;
-                            const url = await window.api.uploadPhoto(compressed, fileName);
-                            resolve(url);
+                            const fileName = `photos/${Date.now()}_gallery_${Math.random().toString(36).substr(2, 5)}.jpg`;
+                            
+                            try {
+                                const url = await window.api.uploadPhoto(compressed, fileName);
+                                resolve(url);
+                            } catch (error) {
+                                console.error(error);
+                                resolve(null);
+                            }
                         };
                         img.src = re.target.result;
                     };
                     reader.readAsDataURL(file);
                 });
 
-                // Обновляем текущего участника в цикле
-                updateParticipant(participant.id, 'photos', [...participant.photos, downloadUrl]);
+                if (downloadUrl) {
+                    // Ключевое исправление: используем ID участника для точного обновления
+                    setParticipants(prev => prev.map(p => 
+                        p.id === participant.id ? { ...p, photos: [...p.photos, downloadUrl] } : p
+                    ));
+                }
             }
+            showToast('Загрузка завершена');
         }} 
     />
 </label>
