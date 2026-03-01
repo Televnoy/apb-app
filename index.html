@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>АПБ Судейская Панель</title>
@@ -25,89 +24,22 @@
     <!-- Dependencies -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-
-<script type="text/babel" data-presets="react">
-    // Мы используем type="text/babel", чтобы Babel прочитал JSX (<App />)
-    // Мы не используем type="module" здесь, чтобы избежать конфликтов
-    
-    (async () => {
-        try {
-            // Динамический импорт Firebase
-            const api = await import('./assets/firebase-db.js');
-            window.api = api;
-            console.log("Модуль Firebase успешно загружен");
-
-            // Инициализация ID устройства
-            let dId = localStorage.getItem('app_device_id');
-            if (!dId) {
-                dId = 'dev_' + Math.random().toString(36).substr(2, 9);
-                localStorage.setItem('app_device_id', dId);
-            }
-            window.currentDeviceId = dId;
-
-            // Рендеринг React (теперь Babel переведет это в JS)
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />); 
-            
-        } catch (err) {
-            console.error("Критическая ошибка:", err);
-            document.body.innerHTML = "<h1>Ошибка: " + err.message + "</h1>";
-        }
-    })();
-</script>
->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 
     <!---->
     <script type="module">
-    // Защищенный импорт. Если файла нет, приложение не упадет, а покажет ошибку
-    try {
-        const module = await import('./assets/firebase-db.js');
-        window.api = { 
-            loginWithKey: module.loginWithKey, 
-            updateJudgeProfile: module.updateJudgeProfile, 
-            saveEvaluation: module.saveEvaluation, 
-            changeJudgeKey: module.changeJudgeKey 
-        };
-        console.log("Модуль Firebase успешно загружен");
-    } catch (err) {
-        console.error("Критическая ошибка загрузки модуля:", err);
-        document.body.innerHTML = `
-            <div style="padding: 50px; text-align: center; color: red;">
-                <h1>Ошибка загрузки</h1>
-                <p>Не удалось найти файл <b>/assets/firebase-db.js</b></p>
-                <p>Проверь, лежит ли он в папке <b>assets</b>!</p>
-            </div>`;
-    }
+    import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey } from './assets/firebase-db.js';    
+    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey };
 
-    // Инициализация ID (остальной код)
-    let dId = localStorage.getItem('app_device_id');
-    if (!dId) {
-        dId = 'dev_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('app_device_id', dId);
+    let deviceId = localStorage.getItem('app_device_id');
+    if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).substr(2, 12) + Date.now();
+        localStorage.setItem('app_device_id', deviceId);
     }
-    window.currentDeviceId = dId;
-
-    // ...далее твой компонент App...
-
-    // Пытаемся отрендерить приложение и ловим ошибку
-    try {
-        console.log("Попытка рендеринга App...");
-        const root = ReactDOM.createRoot(rootElement);
-        root.render(<App />);
-    } catch (e) {
-        console.error("КРИТИЧЕСКАЯ ОШИБКА РЕНДЕРИНГА:", e);
-        rootElement.innerHTML = `
-            <div style="padding: 20px; font-family: sans-serif;">
-                <h2 style="color: red;">Ошибка в приложении</h2>
-                <p>Текст ошибки: <strong>${e.message}</strong></p>
-                <p>Посмотри консоль (F12) для деталей.</p>
-            </div>
-        `;
-    }
+    window.deviceId = deviceId; // Обязательно для доступа из React
 </script>
 
     <!---->
@@ -305,73 +237,71 @@
 const deviceId = localStorage.getItem('app_device_id') || 'dev_' + Math.random().toString(36).substr(2, 9);
 if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id', deviceId);
             
-
-//__________________________________________
 const handleAuth = async () => {
     setAuthError(null);
-
-    // 1. Базовая проверка заполнения
-    if (!accessKey.trim()) {
+    if (!accessKey) {
         setAuthError('Введите ключ доступа');
         return;
     }
 
-    // 2. Проверка минимальной длины (согласно нашим правилам безопасности)
-    if (accessKey.trim().length < 6) {
-        setAuthError('Ключ должен содержать не менее 6 символов');
-        return;
-    }
-
-    // 3. Проверка готовности API
-    if (!window.api) {
-        setAuthError('Система загружается, подождите секунду...');
-        return;
-    }
-
-    setLoading(true); // Если у тебя есть стейт загрузки
-
     try {
-        // Используем window.currentDeviceId (или тот, что ты прописал в localStorage)
-        const deviceId = window.currentDeviceId || localStorage.getItem('app_device_id');
-        
-        const result = await window.api.loginWithKey(accessKey, deviceId);
+        const result = await window.api.loginWithKey(accessKey, window.deviceId);
 
         if (result.success) {
-            // Определяем финальные данные: приоритет данным из базы (если они там есть)
+            // Если в базе уже есть имя/город, берем их, если нет — используем введенные
             const finalName = result.user?.displayName || tempJudgeName || 'Судья';
             const finalCity = result.user?.city || selectedCity || 'Москва';
 
-            // Если в базе профиль новый (нет имени или города), обновляем его сразу
+            // Если в базе было пусто, сохраняем туда то, что ввел пользователь при входе
             if (!result.user?.displayName || !result.user?.city) {
                 await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
             }
 
-            // Обновляем состояния приложения
             setJudgeName(finalName);
             setEventCity(finalCity);
-            setKey(accessKey); // Сохраняем ключ в основной стейт
             setIsAuthenticated(true);
-            
-            // Если в приложении используется view, переключаем на дашборд
-            if (typeof setView === 'function') setView('dashboard');
 
-            // Сохраняем профиль для автологина при перезагрузке
             const profileData = { name: finalName, key: accessKey, city: finalCity };
             localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
-            
-            console.log("Авторизация успешна. DeviceId:", deviceId);
         } else {
-            // Сюда попадет ошибка "Ключ не найден" или "Привязан к другому устройству"
             setAuthError(result.error);
         }
     } catch (err) {
-        console.error("Auth error:", err);
-        setAuthError('Ошибка соединения с сервером');
-    } finally {
-        setLoading(false);
+        setAuthError('Ошибка соединения');
     }
 };
+//__________________________________________
+const handleSaveSettings = async () => {
+    try {
+        let result;
+        // 1. Проверяем, изменился ли ключ (пароль)
+        if (editAccessKey !== accessKey) {
+            // Если ключ новый, вызываем перенос данных
+            result = await window.api.changeJudgeKey(accessKey, editAccessKey, editJudgeName, eventCity);
+        } else {
+            // Если ключ тот же, просто обновляем имя и город
+            result = await window.api.updateJudgeProfile(accessKey, editJudgeName, eventCity);
+        }
 
+        if (result && result.success) {
+            // Обновляем состояние в приложении
+            setAccessKey(editAccessKey);
+            setJudgeName(editJudgeName);
+            
+            // Сохраняем в память браузера
+            const newProfile = { name: editJudgeName, key: editAccessKey, city: eventCity };
+            localStorage.setItem('judging_app_v5_profile', JSON.stringify(newProfile));
+            
+            setIsSettingsOpen(false);
+            showToast('Настройки сохранены');
+        } else {
+            showToast(result?.error || 'Ошибка сохранения');
+        }
+    } catch (e) {
+        console.error("Ошибка в handleSaveSettings:", e);
+        showToast('Системная ошибка: проверьте консоль');
+    }
+};
             const participants = allData[discipline] || [{ id: '1', number: '00', comment: '', photos: [], score: null }];
             const isCurrentSubmitted = submittedDisciplines.includes(discipline);
             
