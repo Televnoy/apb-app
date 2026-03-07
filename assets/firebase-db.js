@@ -3,9 +3,9 @@ import {
     getFirestore, doc, getDoc, updateDoc, collection, addDoc, 
     arrayUnion, serverTimestamp, setDoc, deleteDoc 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { 
-    getStorage, ref, uploadString, getDownloadURL 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+// AWS SDK доступен глобально после подключения скрипта в index.html
+// import AWS from 'aws-sdk'; // не нужно, используем window.AWS
 
 const firebaseConfig = {
     apiKey: "AIzaSyDSrWUBYjqYpA6CgG-tn0B2E_h9HN2wgZ8",
@@ -20,7 +20,6 @@ const firebaseConfig = {
 // Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 const clean = (str) => (str ? String(str).trim() : "");
 
@@ -138,20 +137,48 @@ export const saveEvaluation = async (data) => {
 };
 
 /**
- * Загрузка фото в Firebase Storage и получение URL
+ * Загрузка фото в Cloud.ru Object Storage (S3-совместимое) и получение URL
  */
-export const uploadPhoto = async (base64Data, path) => {
+export const uploadPhoto = async (base64Data, fileName) => {
+    // Настройка S3-клиента для Cloud.ru
+    const s3 = new AWS.S3({
+        endpoint: 'https://s3.cloud.ru',
+        region: 'ru-central-1',
+        credentials: {
+            accessKeyId: 'e30aafe4c7cad7c16b366935712985b3',
+            secretAccessKey: '38fa4c92f01adae082e184adb0fe6e0b'
+        },
+        s3ForcePathStyle: true, // обязательно для Cloud.ru (path-style)
+        signatureVersion: 'v4'
+    });
+
+    // Преобразуем base64 в бинарные данные
+    const base64Image = base64Data.split(';base64,').pop();
+    const binaryData = atob(base64Image);
+    const arrayBuffer = new ArrayBuffer(binaryData.length);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    for (let i = 0; i < binaryData.length; i++) {
+        uint8Array[i] = binaryData.charCodeAt(i);
+    }
+
+    const params = {
+        Bucket: 'bucket-abpapp',
+        Key: fileName,
+        Body: uint8Array,
+        ContentType: 'image/jpeg',
+        ACL: 'public-read' // делаем объект публичным для прямого доступа
+    };
+
     try {
-        const storageRef = ref(storage, path);
-        // Загружаем как Data URL (Base64)
-        await uploadString(storageRef, base64Data, 'data_url');
-        // Возвращаем прямую ссылку на файл
-        return await getDownloadURL(storageRef);
-    } catch (e) {
-        console.error("Ошибка Storage:", e);
-        throw e;
+        const result = await s3.upload(params).promise();
+        // result.Location содержит прямую ссылку на загруженный файл
+        return result.Location;
+    } catch (error) {
+        console.error("Ошибка загрузки в Cloud.ru:", error);
+        throw error;
     }
 };
-// Добавьте это в самый конец firebase-db.js
+
+// Экспортируем в window для доступа из React (оставлено для совместимости)
 window.uploadPhoto = uploadPhoto;
 window.saveEvaluation = saveEvaluation;
