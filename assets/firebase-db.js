@@ -140,43 +140,64 @@ export const saveEvaluation = async (data) => {
  * Загрузка фото в Cloud.ru Object Storage (S3-совместимое) и получение URL
  */
 export const uploadPhoto = async (base64Data, fileName) => {
-    // Настройка S3-клиента для Cloud.ru
-    const s3 = new AWS.S3({
-        endpoint: 'https://s3.cloud.ru',
-        region: 'ru-central-1',
-        credentials: {
-            accessKeyId: 'e30aafe4c7cad7c16b366935712985b3',
-            secretAccessKey: '38fa4c92f01adae082e184adb0fe6e0b'
-        },
-        s3ForcePathStyle: true, // обязательно для Cloud.ru (path-style)
-        signatureVersion: 'v4'
-    });
+    // Список возможных endpoint для Cloud.ru
+    const endpoints = [
+        'https://s3.cloud.ru',
+        'https://s3.ru-central-1.cloud.ru',
+        'https://hb.bizmrg.com' // возможно старый endpoint, но оставим
+    ];
 
-    // Преобразуем base64 в бинарные данные
-    const base64Image = base64Data.split(';base64,').pop();
-    const binaryData = atob(base64Image);
-    const arrayBuffer = new ArrayBuffer(binaryData.length);
-    const uint8Array = new Uint8Array(arrayBuffer);
-    for (let i = 0; i < binaryData.length; i++) {
-        uint8Array[i] = binaryData.charCodeAt(i);
+    let lastError;
+
+    for (const endpoint of endpoints) {
+        try {
+            console.log(`🔄 Пробую endpoint: ${endpoint}`);
+            
+            const s3 = new AWS.S3({
+                endpoint: endpoint,
+                region: 'ru-central-1',
+                credentials: {
+                    accessKeyId: 'e30aafe4c7cad7c16b366935712985b3',
+                    secretAccessKey: '38fa4c92f01adae082e184adb0fe6e0b'
+                },
+                s3ForcePathStyle: true, // Cloud.ru использует path-style
+                signatureVersion: 'v4',
+                httpOptions: {
+                    timeout: 15000, // 15 секунд таймаут
+                    connectTimeout: 5000
+                }
+            });
+
+            // Преобразуем base64 в бинарные данные
+            const base64Image = base64Data.split(';base64,').pop();
+            // Более надёжный способ преобразования base64 в Uint8Array
+            const binaryString = atob(base64Image);
+            const uint8Array = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                uint8Array[i] = binaryString.charCodeAt(i);
+            }
+
+            const params = {
+                Bucket: 'bucket-abpapp',
+                Key: fileName,
+                Body: uint8Array,
+                ContentType: 'image/jpeg',
+                ACL: 'public-read' // если бакет не публичный, можно убрать
+            };
+
+            const result = await s3.upload(params).promise();
+            console.log('✅ Файл загружен, URL:', result.Location);
+            return result.Location; // публичная ссылка на фото
+
+        } catch (err) {
+            console.warn(`❌ Endpoint ${endpoint} не сработал:`, err.message || err);
+            lastError = err;
+            // Продолжаем со следующим endpoint
+        }
     }
 
-    const params = {
-        Bucket: 'bucket-abpapp',
-        Key: fileName,
-        Body: uint8Array,
-        ContentType: 'image/jpeg',
-        ACL: 'public-read' // делаем объект публичным для прямого доступа
-    };
-
-    try {
-        const result = await s3.upload(params).promise();
-        // result.Location содержит прямую ссылку на загруженный файл
-        return result.Location;
-    } catch (error) {
-        console.error("Ошибка загрузки в Cloud.ru:", error);
-        throw error;
-    }
+    // Если ни один endpoint не сработал
+    throw new Error(`Не удалось подключиться к Cloud.ru. Проверьте интернет, CORS и настройки бакета. Последняя ошибка: ${lastError?.message || 'Неизвестная ошибка'}`);
 };
 
 // Экспортируем в window для доступа из React (оставлено для совместимости)
