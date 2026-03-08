@@ -291,35 +291,35 @@ window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey,
             if (!localStorage.getItem('app_device_id')) localStorage.setItem('app_device_id', deviceId);
             
             const handleAuth = async () => {
-                setAuthError(null);
-                if (!accessKey) {
-                    setAuthError('Введите ключ доступа');
-                    return;
-                }
+    setAuthError(null);
+    if (!accessKey) {
+        setAuthError('Введите ключ доступа');
+        return;
+    }
 
-                try {
-                    const result = await window.api.loginWithKey(accessKey, window.deviceId);
-                    if (result.success) {
-                        const finalName = result.user?.displayName || tempJudgeName || 'Судья';
-                        const finalCity = result.user?.city || selectedCity || 'Москва';
+    try {
+        const result = await window.api.loginWithKey(accessKey, window.deviceId);
+        if (result.success) {
+            // Используем введённые имя и город (если есть), иначе берём из профиля, иначе значения по умолчанию
+            const finalName = tempJudgeName || result.user?.displayName || 'Судья';
+            const finalCity = selectedCity || result.user?.city || 'Москва';
 
-                        if (!result.user?.displayName || !result.user?.city) {
-                            await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
-                        }
+            // **Всегда** обновляем профиль в Firebase, чтобы сохранить новые имя/город
+            await window.api.updateJudgeProfile(accessKey, finalName, finalCity);
 
-                        setJudgeName(finalName);
-                        setEventCity(finalCity);
-                        setIsAuthenticated(true);
+            setJudgeName(finalName);
+            setEventCity(finalCity);
+            setIsAuthenticated(true);
 
-                        const profileData = { name: finalName, key: accessKey, city: finalCity };
-                        localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
-                    } else {
-                        setAuthError(result.error);
-                    }
-                } catch (err) {
-                    setAuthError('Ошибка соединения');
-                }
-            };
+            const profileData = { name: finalName, key: accessKey, city: finalCity };
+            localStorage.setItem('judging_app_v5_profile', JSON.stringify(profileData));
+        } else {
+            setAuthError(result.error);
+        }
+    } catch (err) {
+        setAuthError('Ошибка соединения');
+    }
+};
             
             const handleSaveSettings = async () => {
                 try {
