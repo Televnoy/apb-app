@@ -199,7 +199,35 @@ export const uploadPhoto = async (base64Data, fileName) => {
         }
     }
 };
+// ... (весь предыдущий код без изменений, добавляем в конец)
+
+/**
+ * Отвязка устройства от ключа (при выходе)
+ */
+export const unbindDevice = async (accessKey, deviceId) => {
+    try {
+        const docRef = doc(db, "judges", clean(accessKey));
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return { success: false, error: "Ключ не найден" };
+        
+        const data = snap.data();
+        // Отвязываем только если переданный deviceId совпадает с текущим
+        if (data.deviceId && data.deviceId === deviceId) {
+            await updateDoc(docRef, { 
+                deviceId: null, 
+                unboundAt: serverTimestamp() 
+            });
+            return { success: true };
+        } else {
+            return { success: false, error: "Устройство не привязано или не совпадает" };
+        }
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+};
 
 // Экспортируем в window для доступа из React (оставлено для совместимости)
 window.uploadPhoto = uploadPhoto;
 window.saveEvaluation = saveEvaluation;
+window.unbindDevice = unbindDevice;
+
