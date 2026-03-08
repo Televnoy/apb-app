@@ -137,67 +137,67 @@ export const saveEvaluation = async (data) => {
 };
 
 /**
- * Загрузка фото в Cloud.ru Object Storage (S3-совместимое) и получение URL
+ * Загрузка фото в Yandex Object Storage и получение URL
  */
 export const uploadPhoto = async (base64Data, fileName) => {
-    // Список возможных endpoint для Cloud.ru
-    const endpoints = [
-        'https://s3.cloud.ru',
-        'https://s3.ru-central-1.cloud.ru',
-        'https://hb.bizmrg.com' // возможно старый endpoint, но оставим
-    ];
-
-    let lastError;
-
-    for (const endpoint of endpoints) {
-        try {
-            console.log(`🔄 Пробую endpoint: ${endpoint}`);
-            
-            const s3 = new AWS.S3({
-                endpoint: endpoint,
-                region: 'ru-central-1',
-                credentials: {
-                    accessKeyId: 'e30aafe4c7cad7c16b366935712985b3',
-                    secretAccessKey: '38fa4c92f01adae082e184adb0fe6e0b'
-                },
-                s3ForcePathStyle: true, // Cloud.ru использует path-style
-                signatureVersion: 'v4',
-                httpOptions: {
-                    timeout: 15000, // 15 секунд таймаут
-                    connectTimeout: 5000
-                }
-            });
-
-            // Преобразуем base64 в бинарные данные
-            const base64Image = base64Data.split(';base64,').pop();
-            // Более надёжный способ преобразования base64 в Uint8Array
-            const binaryString = atob(base64Image);
-            const uint8Array = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                uint8Array[i] = binaryString.charCodeAt(i);
+    try {
+        console.log('🚀 Начинаем загрузку в Yandex Cloud:', fileName);
+        
+        // Проверяем наличие конфигурации
+        if (!window.YANDEX_CLOUD_CONFIG) {
+            throw new Error('Отсутствует конфигурация Yandex Cloud. Создайте файл config.js с ключами доступа.');
+        }
+        
+        // Настройка S3-клиента для Yandex Cloud
+        const s3 = new AWS.S3({
+            endpoint: 'https://storage.yandexcloud.net',  // единый endpoint Yandex
+            region: 'ru-central1',                         // регион
+            credentials: {
+                accessKeyId: window.YANDEX_CLOUD_CONFIG.accessKeyId,
+                secretAccessKey: window.YANDEX_CLOUD_CONFIG.secretAccessKey
+            },
+            s3ForcePathStyle: true,  // обязательно для Yandex
+            signatureVersion: 'v4',
+            httpOptions: {
+                timeout: 30000,      // 30 секунд на всю операцию
+                connectTimeout: 10000 // 10 секунд на подключение
             }
+        });
 
-            const params = {
-                Bucket: 'bucket-abpapp',
-                Key: fileName,
-                Body: uint8Array,
-                ContentType: 'image/jpeg',
-                ACL: 'public-read' // если бакет не публичный, можно убрать
-            };
+        // Преобразование base64 в бинарные данные
+        const base64Image = base64Data.split(';base64,').pop();
+        const binaryString = atob(base64Image);
+        const uint8Array = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            uint8Array[i] = binaryString.charCodeAt(i);
+        }
 
-            const result = await s3.upload(params).promise();
-            console.log('✅ Файл загружен, URL:', result.Location);
-            return result.Location; // публичная ссылка на фото
+        const params = {
+            Bucket: 'bucket-apb',                           // имя вашего бакета
+            Key: fileName,
+            Body: uint8Array,
+            ContentType: 'image/jpeg',
+            ACL: 'public-read'                               // делаем фото публичным
+        };
 
-        } catch (err) {
-            console.warn(`❌ Endpoint ${endpoint} не сработал:`, err.message || err);
-            lastError = err;
-            // Продолжаем со следующим endpoint
+        console.log('📤 Отправляем запрос в Yandex Cloud...');
+        const result = await s3.upload(params).promise();
+        console.log('✅ Фото успешно загружено, URL:', result.Location);
+        return result.Location; // публичная ссылка на фото
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки в Yandex Cloud:', error);
+        // Детальный вывод ошибки для отладки
+        if (error.code === 'NetworkingError') {
+            throw new Error(`Ошибка сети при подключении к Yandex Cloud. Проверьте интернет и CORS. Детали: ${error.message}`);
+        } else if (error.code === 'AccessDenied') {
+            throw new Error(`Доступ запрещён. Проверьте ключи доступа и права бакета.`);
+        } else if (error.message.includes('конфигурация')) {
+            throw error; // Пробрасываем ошибку о отсутствии config.js
+        } else {
+            throw new Error(`Ошибка загрузки фото: ${error.message || 'Неизвестная ошибка'}`);
         }
     }
-
-    // Если ни один endpoint не сработал
-    throw new Error(`Не удалось подключиться к Cloud.ru. Проверьте интернет, CORS и настройки бакета. Последняя ошибка: ${lastError?.message || 'Неизвестная ошибка'}`);
 };
 
 // Экспортируем в window для доступа из React (оставлено для совместимости)
