@@ -29,9 +29,9 @@
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1692.0.min.js"></script>
 
     <script type="module">
-    import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey, uploadPhoto } from './assets/firebase-db.js';    
-    window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey, uploadPhoto };
-
+    import { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey, uploadPhoto, unbindDevice } from './assets/firebase-db.js';    
+window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey, uploadPhoto, unbindDevice };
+        
     let deviceId = localStorage.getItem('app_device_id');
     if (!deviceId) {
         deviceId = 'dev_' + Math.random().toString(36).substr(2, 12) + Date.now();
@@ -940,9 +940,6 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
-
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
     
 </body>
 </html>
