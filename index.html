@@ -745,25 +745,32 @@ window.api = { loginWithKey, updateJudgeProfile, saveEvaluation, changeJudgeKey,
                                             >
                                                 <Icon name="mic" size={18} /> Голос
                                             </button>
-                                            <label className="flex items-center gap-2 text-gray-600 text-[10px] font-medium uppercase tracking-widest cursor-pointer disabled:opacity-20">
-                                                <Icon name="attach_file" size={18} /> Файл
-                                                <input type="file" multiple accept="image/*" className="hidden" disabled={isCurrentSubmitted} onChange={async (e) => {
-                                                    const files = Array.from(e.target.files);
-                                                    for (const f of files) {
-                                                        const reader = new FileReader();
-                                                        reader.onload = async (re) => {
-                                                            // Сжимаем изображение перед добавлением
-                                                            const processed = await resizeAndCropImage(re.target.result, 800, 1422);
-                                                            setParticipants(prev => prev.map(p => 
-                                                                p.id === participant.id 
-                                                                    ? { ...p, photos: [...p.photos, processed] } 
-                                                                    : p
-                                                            ));
-                                                        };
-                                                        reader.readAsDataURL(f);
-                                                    }
-                                                }} />
-                                            </label>
+                                          <label className="flex items-center gap-2 text-gray-600 text-[10px] font-medium uppercase tracking-widest cursor-pointer disabled:opacity-20">
+    <Icon name="attach_file" size={18} /> Файл
+    <input type="file" multiple accept="image/*" className="hidden" disabled={isCurrentSubmitted} onChange={async (e) => {
+        const files = Array.from(e.target.files);
+        const processedPhotos = [];
+        
+        // Обрабатываем файлы последовательно, чтобы избежать гонки данных
+        for (const f of files) {
+            const reader = new FileReader();
+            const base64 = await new Promise((resolve) => {
+                reader.onload = (re) => resolve(re.target.result);
+                reader.readAsDataURL(f);
+            });
+            // Сжимаем изображение перед добавлением
+            const processed = await resizeAndCropImage(base64, 800, 1422);
+            processedPhotos.push(processed);
+        }
+        
+        // Добавляем все фото сразу одной операцией
+        setParticipants(prev => prev.map(p => 
+            p.id === participant.id 
+                ? { ...p, photos: [...p.photos, ...processedPhotos] } 
+                : p
+        ));
+    }} />
+</label>
                                         </div>
 
                                         {participant.photos.length > 0 && (
