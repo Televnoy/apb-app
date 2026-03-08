@@ -845,8 +845,21 @@
                                 <div className="space-y-3">
                                     <button onClick={handleSaveSettings} className="w-full bg-[#3171af] text-white rounded-full py-4 text-[11px] font-medium uppercase tracking-widest active:scale-95 transition-all">Сохранить</button>
                                     <button onClick={() => setIsHistoryOpen(true)} className="w-full bg-gray-50 text-gray-600 rounded-full py-4 text-[11px] font-medium uppercase tracking-widest active:scale-95 transition-all">История оценок</button>
-                                    <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full bg-red-50 text-red-500 rounded-full py-4 text-[11px] font-medium uppercase tracking-widest active:scale-95 transition-all">Выйти</button>
-                                </div>
+<button onClick={async () => {
+    try {
+        // Пытаемся отвязать устройство перед выходом
+        const result = await window.api.unbindDevice(accessKey, window.deviceId);
+        if (!result.success) {
+            console.warn('Не удалось отвязать устройство:', result.error);
+            // Всё равно выполняем выход
+        }
+    } catch (e) {
+        console.error('Ошибка при отвязке устройства:', e);
+    } finally {
+        localStorage.clear();
+        window.location.reload();
+    }
+}} className="w-full bg-red-50 text-red-500 rounded-full py-4 text-[11px] font-medium uppercase tracking-widest active:scale-95 transition-all">Выйти</button>                                </div>
                             </div>
                         </div>
                     )}
