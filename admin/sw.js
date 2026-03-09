@@ -1,23 +1,31 @@
-#### 2. `sw.js` (Service Worker в корне папки `admin`)
-```javascript
-const CACHE_NAME = 'apb-live-v1';
-const ASSETS = [
-  './',
-  './index.html',
-  './App.js', // Ваш скомпилированный JS
-  'https://cdn.tailwindcss.com'
+const CACHE_NAME = 'apb-cache-v1';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png'
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', event => {
+  self.skipWaiting(); // активируем новый воркер сразу
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    caches.match(event.request).then(response => response || fetch(event.request))
+  );
+});
+
+// Очистка старых кэшей
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+    ))
   );
 });
