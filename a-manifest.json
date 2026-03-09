@@ -1,8 +1,8 @@
 {
-  "name": "APB Admin Panel",
-  "short_name": "APB Admin",
+  "name": "АПБ Админ",
+  "short_name": "АПБ Админ",
   "description": "Панель управления конкурсом APB",
-  "start_url": "/admin/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#F2F2F2",
   "theme_color": "#000000",
