@@ -8,7 +8,8 @@
   <link rel="manifest" href="/apb-app/a-manifest.json" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="/apb-app/icons/icon-192.png" />
+  <!-- Иконка для iOS с префиксом "a" -->
+  <link rel="apple-touch-icon" href="/apb-app/aapple-touch-icon.png" />
   <title>APB Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
@@ -159,7 +160,7 @@
         return groups;
       };
 
-      // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ YANDEXGPT (через прокси) ---
+      // --- ФУНКЦИЯ ДЛЯ YANDEXGPT ЧЕРЕЗ ПРОКСИ ---
       const analyzeComments = async (participantNumber, retryCount = 0) => {
         if (retryCount === 0) {
           setIsAnalyzing(true);
@@ -179,17 +180,14 @@
         }
 
         try {
-          // URL вашей прокси-функции
           const PROXY_URL = "https://functions.yandexcloud.net/d4ej8k6scmj9evo4us4n";
 
           const response = await fetch(PROXY_URL, {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
-              // Ключи удалены – они хранятся только на сервере
             },
             body: JSON.stringify({
-              // Только данные, необходимые для анализа
               completionOptions: {
                 stream: false,
                 temperature: 0.6,
