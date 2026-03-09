@@ -1,15 +1,15 @@
 const CACHE_NAME = 'apb-cache-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/apple-touch-icon.png'
+  '/apb-app/admin/',
+  '/apb-app/admin/index.html',
+  '/apb-app/admin/manifest.json',
+  '/apb-app/admin/icon-192.png',
+  '/apb-app/admin/icon-512.png',
+  '/apb-app/admin/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting(); // активируем новый воркер сразу
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
@@ -21,7 +21,6 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Очистка старых кэшей
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
