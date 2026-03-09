@@ -1,0 +1,61 @@
+{
+  "name": "APB Live Dashboard",
+  "short_name": "APB Live",
+  "description": "Мониторинг оценок и результатов APB в реальном времени",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F2F2F2",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+
+#### 2. `sw.js` (Service Worker в корне папки `admin`)
+```javascript
+const CACHE_NAME = 'apb-live-v1';
+const ASSETS = [
+  './',
+  './index.html',
+  './App.js', // Ваш скомпилированный JS
+  'https://cdn.tailwindcss.com'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
+    })
+  );
+});
+
+#### 3. `index.html` (в папке `admin`)
+В секции `<head>` обязательно добавьте:
+```html
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
+  }
+</script>
+
+Я обновил основное приложение, добавив логику «Установочного баннера» (Install Prompt) и подготовил UI к работе в мобильном режиме standalone. Теперь, если открыть это приложение в браузере с поддержкой PWA, оно предложит установку на главный экран.
