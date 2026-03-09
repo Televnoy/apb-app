@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#000000" />
   <meta name="description" content="APB Admin Panel – управление конкурсом" />
-  <link rel="manifest" href="/a-manifest.json" />
-  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/apb-app/a-manifest.json" />  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-  <title>APB Admin</title>
+  <link rel="apple-touch-icon" href="/apb-app/admin/icons/icon-192.png" />  <title>APB Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
@@ -437,10 +435,10 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
-  <script>
+    <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/a-sw.js')
+        navigator.serviceWorker.register('/apb-app/a-sw.js')
           .then(reg => console.log('SW registered:', reg))
           .catch(err => console.log('SW registration failed:', err));
       });
