@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>АПБ Админ</title>
+  <meta name="theme-color" content="#3171af">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-[#F2F2F2] font-sans antialiased">
+  <div id="root"></div>
+
+  <script type="module">
+    import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
+    import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+    import { initializeApp } from 'https://esm.sh/firebase/app@10.8.0';
+    import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://esm.sh/firebase/auth@10.8.0';
+    import { 
+      getFirestore, 
+      collection, 
+      onSnapshot, 
+      query 
+    } from 'https://esm.sh/firebase/firestore@10.8.0';
+    import { 
+      Award, 
+      Image as ImageIcon, 
+      Sparkles, 
+      X, 
+      Download,
+      Loader2,
+      ChevronLeft,
+      ChevronRight,
+      Maximize2,
+      Calendar,
+      AlertCircle
+    } from 'https://esm.sh/lucide-react@0.378.0';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDSrWUBYjqYpA6CgG-tn0B2E_h9HN2wgZ8",
+      authDomain: "apbapp-862a2.firebaseapp.com",
+      projectId: "apbapp-862a2",
+      storageBucket: "apbapp-862a2.firebasestorage.app",
+      messagingSenderId: "909828829367",
+      appId: "1:909828829367:web:64aa085f80b59b95d5dd32"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const geminiKey = ""; // Укажите здесь ваш API ключ Gemini
+
+    const MONTHS = [
+      "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+      "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    ];
+
+    function App() {
+      const [user, setUser] = useState(null);
+      const [data, setData] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [selectedCity, setSelectedCity] = useState('Все города');
+      const [selectedDate, setSelectedDate] = useState({
+        month: new Date().getMonth(),
+        year: new Date().getFullYear()
+      });
+      const [lastEvent, setLastEvent] = useState('Ожидание обновлений...');
+      const [modalMedia, setModalMedia] = useState(null); 
+      const [aiAnalysis, setAiAnalysis] = useState("");
+      const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [errorInfo, setErrorInfo] = useState(null);
+      const [fullscreenImage, setFullscreenImage] = useState(null);
+      const scrollRef = useRef(null);
+
+      // 1. Инициализация Auth (обязательно для Firestore)
+      useEffect(() => {
+        const initAuth = async () => {
+          try {
+            await signInAnonymously(auth);
+          } catch (err) {
+            console.error("Auth Error:", err);
+            setErrorInfo("Ошибка авторизации. Проверьте настройки Firebase.");
+          }
+        };
+        initAuth();
+        const unsubscribe = onAuthStateChanged(auth, (u) => {
+          setUser(u);
+          if (!u) setLoading(true);
+        });
+        return () => unsubscribe();
+      }, []);
+
+      // 2. Загрузка данных (только после Auth)
+      useEffect(() => {
+        if (!user) return;
+
+        const q = query(collection(db, 'evaluations'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          const evaluations = [];
+          snapshot.forEach((doc) => {
+            evaluations.push({ firestoreId: doc.id, ...doc.data() });
+          });
+          
+          if (evaluations.length > 0) {
+            const latest = evaluations[evaluations.length - 1];
+            setLastEvent(`Судья ${latest.judgeName || '—'} оценил участника в номинации ${latest.discipline || '—'}`);
+          }
+          
+          setData(evaluations);
+          setLoading(false);
+        }, (error) => {
+          console.error("Firestore error:", error);
+          setErrorInfo("Ошибка доступа к данным. Проверьте правила Firestore.");
+          setLoading(false);
+        });
+        return () => unsubscribe();
+      }, [user]);
+
+      const getFilteredByDate = () => {
+        return data.filter(item => {
+          if (!item.timestamp) return false;
+          const date = new Date(item.timestamp);
+          return date.getMonth() === selectedDate.month && date.getFullYear() === selectedDate.year;
+        });
+      };
+
+      const getFlatList = (sortByScore = false) => {
+        const list = [];
+        const filteredData = getFilteredByDate();
+        
+        filteredData.forEach(item => {
+          if (item.participants && Array.isArray(item.participants)) {
+            item.participants.forEach((p, pIdx) => {
+              list.push({
+                firestoreId: item.firestoreId,
+                participantIdx: pIdx,
+                number: p.number || '00',
+                score: Number(p.score) || 0,
+                place: 31 - (Number(p.score) || 0),
+                judge: item.judgeName || '—',
+                city: item.city || '—',
+                comment: p.comment || '',
+                photos: p.photos || [],
+                discipline: item.discipline || '—',
+                timestamp: item.timestamp || 0
+              });
+            });
+          }
+        });
+        return sortByScore ? list.sort((a, b) => b.score - a.score) : list; 
+      };
+
+      const allEntriesRaw = getFlatList(false);
+      const allEntriesRanked = getFlatList(true);
+      const cities = ['Все города', ...new Set(allEntriesRaw.map(e => e.city))];
+      
+      const filteredLiveEntries = selectedCity === 'Все города' 
+        ? allEntriesRaw 
+        : allEntriesRaw.filter(e => e.city === selectedCity);
+
+      const getNominationGroups = () => {
+        const filteredRanked = selectedCity === 'Все города' 
+          ? allEntriesRanked 
+          : allEntriesRanked.filter(e => e.city === selectedCity);
+        const groups = {};
+        filteredRanked.forEach(p => {
+          if (!groups[p.discipline]) groups[p.discipline] = [];
+          groups[p.discipline].push(p);
+        });
+        return groups;
+      };
+
+      const analyzeComments = async (participantNumber, retryCount = 0) => {
+        if (!geminiKey) {
+            setAiAnalysis("API ключ Gemini не установлен.");
+            return;
+        }
+        if (retryCount === 0) { setIsAnalyzing(true); setAiAnalysis(""); setErrorInfo(null); }
+        
+        const relevantComments = allEntriesRaw
+          .filter(e => e.number === participantNumber && e.comment && e.comment.trim().length > 0)
+          .map(e => `Судья ${e.judge}: "${e.comment}"`).join("\n");
+
+        if (!relevantComments) { setAiAnalysis("Недостаточно отзывов для анализа."); setIsAnalyzing(false); return; }
+
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `Проанализируй отзывы судей об участнике №${participantNumber}. Напиши краткое резюме (2-3 предложения) на русском языке. Избегай капслока.\n\n${relevantComments}` }] }],
+              systemInstruction: { parts: [{ text: "Ты эксперт-аналитик конкурса. Пиши грамотно, вежливо, используя обычный регистр." }] }
+            })
+          });
+          
+          if (!response.ok) {
+            if ((response.status === 429 || response.status >= 500) && retryCount < 5) {
+              const delay = Math.pow(2, retryCount) * 1000;
+              setTimeout(() => analyzeComments(participantNumber, retryCount + 1), delay);
+              return;
+            }
+            throw new Error("Ошибка API");
+          }
+          const result = await response.json();
+          setAiAnalysis(result.candidates?.[0]?.content?.parts?.[0]?.text || "Текст не получен.");
+        } catch (error) { 
+          setErrorInfo("Ошибка соединения с AI."); 
+        } finally { 
+          if (retryCount === 0) setIsAnalyzing(false); 
+        }
+      };
+
+      if (loading) return (
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="animate-spin text-[#3171af]" size={32} />
+            <div className="text-black font-bold text-[10px] uppercase tracking-widest">Инициализация...</div>
+          </div>
+        </div>
+      );
+
+      return (
+        <div className="min-h-screen bg-[#F2F2F2] font-sans text-black select-none pb-10">
+          
+          {errorInfo && (
+            <div className="bg-red-500 text-white p-4 flex items-center gap-3 text-[12px] font-bold">
+              <AlertCircle size={18} />
+              <span>{errorInfo}</span>
+            </div>
+          )}
+
+          <div className="sticky top-0 z-40 w-full pt-3 pb-4 px-3 flex justify-center bg-[#F2F2F2]/80 backdrop-blur-md">
+            <div className="bg-black text-white px-5 py-2.5 rounded-[20px] shadow-lg w-full max-w-sm flex items-center gap-3 border border-white/10">
+              <Sparkles size={14} className="text-[#3171af] shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="text-[8px] font-black text-[#3171af] tracking-wider uppercase">Статус</span>
+                <span className="text-[11px] font-medium leading-tight truncate">{lastEvent}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-5xl mx-auto px-3 space-y-4">
+            
+            {/* Календарь */}
+            <div className="flex items-center justify-between bg-white rounded-2xl p-3 border border-gray-100 shadow-sm">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Calendar size={16} />
+                <span className="text-[10px] font-black uppercase tracking-wider">Период</span>
+              </div>
+              <div className="flex items-center gap-4 bg-gray-50 rounded-xl px-2 py-1 border border-gray-100">
+                <button onClick={() => setSelectedDate(p => ({...p, month: p.month - 1 < 0 ? 11 : p.month - 1}))} className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-600"><ChevronLeft size={16} /></button>
+                <div className="flex flex-col items-center min-w-[100px]">
+                  <span className="text-[11px] font-black">{MONTHS[selectedDate.month]}</span>
+                  <span className="text-[8px] font-bold text-[#3171af]">{selectedDate.year}</span>
+                </div>
+                <button onClick={() => setSelectedDate(p => ({...p, month: p.month + 1 > 11 ? 0 : p.month + 1}))} className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-600"><ChevronRight size={16} /></button>
+              </div>
+            </div>
+
+            {/* Таблица */}
+            <div className="bg-white rounded-[24px] shadow-sm p-4 border border-gray-100 overflow-hidden">
+              <div className="flex justify-between items-center mb-3 px-1">
+                <h2 className="text-[9px] font-bold text-gray-400 tracking-widest uppercase italic">Сводка результатов</h2>
+                <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
+                   <div className="w-1.5 h-1.5 bg-[#3171af] rounded-full animate-pulse" />
+                   <span className="text-[8px] font-bold text-[#3171af]">LIVE DATA</span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto scrollbar-hide relative border-t border-gray-50 pt-2">
+                <div className="min-w-[800px]">
+                  <div className="grid grid-cols-[50px_140px_60px_60px_100px_100px_1fr_60px] text-[8px] font-black text-gray-400 px-3 mb-2">
+                    <div>№</div><div>НОМИНАЦИЯ</div><div>БАЛЛ</div><div>МЕСТО</div><div>СУДЬЯ</div><div>ГОРОД</div><div>КОММЕНТАРИЙ</div><div className="text-right">МЕДИА</div>
+                  </div>
+                  
+                  <div className="max-h-[300px] overflow-y-auto pr-1 space-y-1 scrollbar-hide">
+                    {filteredLiveEntries.map((item, idx) => (
+                      <div key={idx} className="grid grid-cols-[50px_140px_60px_60px_100px_100px_1fr_60px] items-center bg-[#F2F2F2]/40 rounded-xl px-3 py-2 text-[11px] hover:bg-white transition-all">
+                        <div className="font-black">{item.number}</div>
+                        <div className="font-bold truncate pr-3">{item.discipline}</div>
+                        <div className="font-black text-[#3171af]">{item.score}</div>
+                        <div className="text-gray-400">{item.place}</div>
+                        <div className="truncate text-gray-700">{item.judge}</div>
+                        <div className="text-gray-500 truncate">{item.city}</div>
+                        <div className="text-gray-400 truncate italic text-[10px]">{item.comment}</div>
+                        <div className="flex justify-end">
+                          <button onClick={() => { setModalMedia({ photos: item.photos, number: item.number }); analyzeComments(item.number); }} className="text-[#3171af] p-1.5 bg-blue-50 rounded-lg">
+                            <ImageIcon size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Карточки */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(getNominationGroups()).map(([nomination, participants]) => (
+                <div key={nomination} className="bg-white rounded-[24px] shadow-sm p-5 border border-gray-100">
+                  <h4 className="text-[11px] font-black uppercase mb-4 border-b border-gray-50 pb-2">{nomination}</h4>
+                  <div className="space-y-1.5">
+                    {participants.map((p, pIdx) => (
+                      <div key={pIdx} className={`flex justify-between items-center px-4 py-3 rounded-[18px] ${pIdx === 0 ? 'bg-black text-white' : 'bg-[#F2F2F2]/60'}`}>
+                        <span className="text-[11px] font-black">№ {p.number}</span>
+                        <div className="flex items-center gap-2 text-[11px] font-black">
+                          <Award size={13} className={pIdx === 0 ? 'text-[#3171af]' : 'text-gray-300'} />
+                          {pIdx + 1} МЕСТО
+                        </div>
+                        <span className="font-black text-[13px]">{p.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Модалка AI */}
+          {modalMedia && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setModalMedia(null)}>
+              <div className="bg-white w-full max-w-lg rounded-[32px] overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                <div className="p-5 flex justify-between items-center border-b border-gray-100">
+                  <h3 className="text-[11px] font-black italic">Участник № {modalMedia.number}</h3>
+                  <button onClick={() => setModalMedia(null)} className="p-2 bg-gray-50 rounded-full"><X size={20} /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-hide">
+                  <div className="bg-[#3171af]/5 border border-[#3171af]/10 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 mb-2"><Sparkles size={14} className="text-[#3171af]" /><span className="text-[9px] font-black text-[#3171af]">AI АНАЛИЗ</span></div>
+                    {isAnalyzing ? <Loader2 size={16} className="animate-spin text-[#3171af]" /> : <p className="text-[12px] italic text-gray-700 leading-relaxed">{aiAnalysis || "Нет комментариев для анализа."}</p>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {modalMedia.photos.map((url, i) => (
+                      <img key={i} src={url} className="w-full aspect-[4/5] object-cover rounded-2xl cursor-pointer" onClick={() => setFullscreenImage(url)} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Fullscreen */}
+          {fullscreenImage && (
+            <div className="fixed inset-0 z-[60] bg-black flex items-center justify-center p-4" onClick={() => setFullscreenImage(null)}>
+               <button className="absolute top-5 right-5 text-white"><X size={32} /></button>
+               <img src={fullscreenImage} className="max-w-full max-h-full object-contain" />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
+
