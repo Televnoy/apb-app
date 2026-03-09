@@ -2,8 +2,8 @@ const CACHE_NAME = 'apb-admin-v1';
 const urlsToCache = [
   '/admin.html',
   '/a-manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/admin/icons/icon-192.png',
+  '/admin/icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
