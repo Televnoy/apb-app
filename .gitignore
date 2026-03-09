@@ -6,3 +6,5 @@ config.js
 # Игнорировать системные файлы
 .DS_Store
 Thumbs.db
+
+admin.html
