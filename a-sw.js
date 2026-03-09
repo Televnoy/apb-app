@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apb-admin-v1';
+const CACHE_NAME = 'apb-admin-v2'; // увеличиваем версию
 const urlsToCache = [
   '/apb-app/admin.html',
   '/apb-app/a-manifest.json',
@@ -9,7 +9,16 @@ const urlsToCache = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+      .then(cache => {
+        // Кэшируем каждый файл по отдельности, игнорируя ошибки
+        const cachePromises = urlsToCache.map(url => {
+          return cache.add(url).catch(err => {
+            console.warn(`Failed to cache ${url}:`, err);
+            // Пропускаем ошибку, чтобы установка продолжилась
+          });
+        });
+        return Promise.all(cachePromises);
+      })
   );
 });
 
@@ -18,6 +27,7 @@ self.addEventListener('fetch', event => {
     caches.match(event.request)
       .then(response => {
         if (response) {
+          // Фоновое обновление
           fetch(event.request)
             .then(networkResponse => {
               caches.open(CACHE_NAME)
