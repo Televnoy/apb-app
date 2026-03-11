@@ -4,7 +4,7 @@
   "description": "Панель управления АПБ",
   "start_url": "/apb-admin/index.html",
   "display": "standalone",
-  "background_color": "#F2F2F2
+  "background_color": "#F2F2F2"
   "theme_color": "#000000",
   "icons": [
     {
