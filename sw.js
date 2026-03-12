@@ -1,4 +1,4 @@
-const CACHE_NAME = 'apb-judging-v2'; // увеличьте версию при изменении файлов
+const CACHE_NAME = 'apb-judging-v3'; // увеличьте версию при изменении файлов
 const ASSETS_TO_CACHE = [
   './index.html',
   './manifest.json',
