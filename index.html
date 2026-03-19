@@ -291,8 +291,8 @@
             // Состояние для долгого нажатия на фото
             const [longPress, setLongPress] = useState({ participantId: null, photoIndex: null, timer: null });
 
-            // Состояние для модального окна выбора штрафа
-            const [penaltyModal, setPenaltyModal] = useState({ visible: false, participantId: null, category: null });
+            // Состояние для выпадающего списка штрафов
+            const [activeDropdown, setActiveDropdown] = useState({ participantId: null, category: null });
 
             const [deferredPrompt, setDeferredPrompt] = useState(null);
             const [showUpdateNotification, setShowUpdateNotification] = useState(false);
@@ -394,6 +394,17 @@
                         .catch(err => console.log('SW registration failed:', err));
                 }
             }, []);
+
+            // Закрытие выпадающего списка при клике вне
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (activeDropdown.participantId && !event.target.closest('.penalty-dropdown') && !event.target.closest('.penalty-button')) {
+                        setActiveDropdown({ participantId: null, category: null });
+                    }
+                };
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, [activeDropdown]);
 
             const showToast = (message) => {
                 setToast(message);
@@ -906,48 +917,69 @@
                                             </div>
                                         )}
 
-                                        {/* Кнопки добавления штрафов (стилизованы как список номинаций) */}
+                                        {/* Кнопки добавления штрафов */}
                                         {!isCurrentSubmitted && (
-                                            <div className="flex flex-wrap gap-2">
+                                            <div className="flex flex-wrap gap-2 relative">
                                                 <button 
+                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors penalty-button"
                                                     onClick={() => {
                                                         const available = getAvailablePenalties(participant, 'three');
                                                         if (available.length === 0) {
                                                             showToast('Все штрафы -3 уже выбраны');
                                                             return;
                                                         }
-                                                        setPenaltyModal({ visible: true, participantId: participant.id, category: 'three' });
-                                                    }} 
-                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors"
+                                                        setActiveDropdown({ participantId: participant.id, category: 'three' });
+                                                    }}
                                                 >
                                                     -3
                                                 </button>
                                                 <button 
+                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors penalty-button"
                                                     onClick={() => {
                                                         const available = getAvailablePenalties(participant, 'five');
                                                         if (available.length === 0) {
                                                             showToast('Все штрафы -5 уже выбраны');
                                                             return;
                                                         }
-                                                        setPenaltyModal({ visible: true, participantId: participant.id, category: 'five' });
-                                                    }} 
-                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors"
+                                                        setActiveDropdown({ participantId: participant.id, category: 'five' });
+                                                    }}
                                                 >
                                                     -5
                                                 </button>
                                                 <button 
+                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors penalty-button"
                                                     onClick={() => {
                                                         const available = getAvailablePenalties(participant, 'ten');
                                                         if (available.length === 0) {
                                                             showToast('Все штрафы -10 уже выбраны');
                                                             return;
                                                         }
-                                                        setPenaltyModal({ visible: true, participantId: participant.id, category: 'ten' });
-                                                    }} 
-                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors"
+                                                        setActiveDropdown({ participantId: participant.id, category: 'ten' });
+                                                    }}
                                                 >
                                                     -10
                                                 </button>
+
+                                                {/* Выпадающий список штрафов */}
+                                                {activeDropdown.participantId === participant.id && activeDropdown.category && (
+                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 shadow-2xl rounded-xl py-1 z-50 max-h-48 overflow-y-auto no-scrollbar penalty-dropdown">
+                                                        {getAvailablePenalties(participant, activeDropdown.category).map((reason, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                onClick={() => {
+                                                                    addPenalty(participant.id, activeDropdown.category, reason);
+                                                                    setActiveDropdown({ participantId: null, category: null });
+                                                                }}
+                                                                className="px-4 py-3 text-[12px] font-light hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+                                                            >
+                                                                {reason}
+                                                            </div>
+                                                        ))}
+                                                        {getAvailablePenalties(participant, activeDropdown.category).length === 0 && (
+                                                            <div className="px-4 py-3 text-center text-gray-400 text-[11px]">Нет доступных нарушений</div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
@@ -1091,42 +1123,6 @@
                                         </tbody>
                                     </table>
                                 )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Модальное окно выбора штрафа */}
-                    {penaltyModal.visible && (
-                        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                            <div className="bg-white rounded-2xl w-full max-w-md max-h-[70vh] overflow-y-auto p-4">
-                                <div className="flex justify-between items-center mb-4">
-                                    <span className="text-sm font-medium">Выберите нарушение</span>
-                                    <button onClick={() => setPenaltyModal({ visible: false, participantId: null, category: null })}>
-                                        <Icon name="close" size={20} />
-                                    </button>
-                                </div>
-                                <div className="space-y-2">
-                                    {penaltyModal.category && (() => {
-                                        const participant = participants.find(p => p.id === penaltyModal.participantId);
-                                        if (!participant) return null;
-                                        const available = getAvailablePenalties(participant, penaltyModal.category);
-                                        return available.map((reason, idx) => (
-                                            <div
-                                                key={idx}
-                                                onClick={() => {
-                                                    addPenalty(penaltyModal.participantId, penaltyModal.category, reason);
-                                                    setPenaltyModal({ visible: false, participantId: null, category: null });
-                                                }}
-                                                className="py-3 px-4 bg-gray-50 rounded-xl text-sm hover:bg-gray-100 active:bg-gray-200 cursor-pointer"
-                                            >
-                                                {reason}
-                                            </div>
-                                        ));
-                                    })()}
-                                    {penaltyModal.category && getAvailablePenalties(participants.find(p => p.id === penaltyModal.participantId), penaltyModal.category).length === 0 && (
-                                        <div className="text-center text-gray-500 py-4">Все штрафы этой категории уже выбраны</div>
-                                    )}
-                                </div>
                             </div>
                         </div>
                     )}
