@@ -177,10 +177,20 @@ export const changeJudgeKey = async (oldKey, newKey, name, city) => {
  * Сохранение отчета (оценки)
  */
 export const saveEvaluation = async (data) => {
+    console.log('🔥 saveEvaluation вызвана с данными:', data);
     try {
-        await addDoc(collection(db, "evaluations"), { ...data, createdAt: serverTimestamp() });
-        return { success: true };
-    } catch (e) { return { success: false, error: e.message }; }
+        // Пытаемся добавить документ в коллекцию evaluations
+        const docRef = await addDoc(collection(db, "evaluations"), { 
+            ...data, 
+            createdAt: serverTimestamp() 
+        });
+        console.log('✅ Документ успешно создан, ID:', docRef.id);
+        return { success: true, id: docRef.id };
+    } catch (e) {
+        console.error('❌ Ошибка при добавлении документа в Firestore:', e);
+        // Возвращаем ошибку, чтобы её мог поймать вызывающий код
+        return { success: false, error: e.message };
+    }
 };
 
 /**
