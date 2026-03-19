@@ -9,7 +9,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#b91c1c">
+    <meta name="theme-color" content="#3171af">
     
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
@@ -74,7 +74,7 @@
             width: 32px;
             height: 32px;
             border: 2px solid rgba(0,0,0,0.05);
-            border-top: 2px solid #b91c1c;
+            border-top: 2px solid #3171af;
             border-radius: 50%;
             animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
         }
@@ -112,15 +112,19 @@
             z-index: 10;
         }
         .penalty-item {
-            background: #fef2f2;
-            border: 1px solid #fee2e2;
+            background: #f0f7ff;  /* очень светлый синий */
+            border: 1px solid #d4e4f5;
             border-radius: 12px;
             padding: 8px 12px;
             font-size: 11px;
-            color: #b91c1c;
+            color: #1e293b;  /* тёмно-серый */
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        .modal-penalty-list {
+            max-height: 60vh;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -145,7 +149,7 @@
                 <div className={`fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center ${isExiting ? 'preloader-exit' : ''}`}>
                     <div className="mb-8 text-black">
                         <svg width="120" height="120" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
-                            <rect fill="#b91c1c" width="96" height="96" rx="9.24" ry="9.24"/>
+                            <rect fill="#3171af" width="96" height="96" rx="9.24" ry="9.24"/>
                             <g fill="#ffffff">
                                 <path d="M33.12,78.03h-3.23l-1.28-2.88h-5.88l-1.21,2.88h-3.15l5.73-12.67h3.14l5.89,12.67Zm-5.47-5.01l-2.03-4.7-1.99,4.7h4.01Z"/>
                                 <path d="M34.8,65.36h11.7v12.67h-2.97v-10.55h-5.76v10.55h-2.97v-12.67Z"/>
@@ -291,8 +295,8 @@
             // Состояние для долгого нажатия на фото
             const [longPress, setLongPress] = useState({ participantId: null, photoIndex: null, timer: null });
 
-            // Состояние для выпадающего списка штрафов
-            const [activeDropdown, setActiveDropdown] = useState({ participantId: null, category: null });
+            // Состояние для модального окна выбора штрафа
+            const [penaltyModal, setPenaltyModal] = useState({ visible: false, participantId: null, category: null });
 
             const [deferredPrompt, setDeferredPrompt] = useState(null);
             const [showUpdateNotification, setShowUpdateNotification] = useState(false);
@@ -394,17 +398,6 @@
                         .catch(err => console.log('SW registration failed:', err));
                 }
             }, []);
-
-            // Закрытие выпадающего списка при клике вне
-            useEffect(() => {
-                const handleClickOutside = (event) => {
-                    if (activeDropdown.participantId && !event.target.closest('.penalty-dropdown') && !event.target.closest('.penalty-button')) {
-                        setActiveDropdown({ participantId: null, category: null });
-                    }
-                };
-                document.addEventListener('mousedown', handleClickOutside);
-                return () => document.removeEventListener('mousedown', handleClickOutside);
-            }, [activeDropdown]);
 
             const showToast = (message) => {
                 setToast(message);
@@ -777,7 +770,7 @@
                                                 )}
                                             </div>
                                         </div>
-                                        <button onClick={() => setAuthStep(2)} disabled={!tempJudgeName} className="w-full bg-[#b91c1c] text-white rounded-full py-4 text-[12px] font-medium uppercase tracking-widest active:scale-95 transition-all disabled:opacity-20">Далее</button>
+                                        <button onClick={() => setAuthStep(2)} disabled={!tempJudgeName} className="w-full bg-[#3171af] text-white rounded-full py-4 text-[12px] font-medium uppercase tracking-widest active:scale-95 transition-all disabled:opacity-20">Далее</button>
                                     </div>
                                 ) : (
                                     <div className="space-y-5">
@@ -788,7 +781,7 @@
                                         {authError && <p className="text-red-500 text-[9px] text-center uppercase font-medium">{authError}</p>}
                                         <div className="flex gap-2">
                                             <button onClick={() => setAuthStep(1)} className="w-14 h-14 rounded-full border border-gray-100 flex items-center justify-center text-gray-400 active:scale-90 transition-all"><Icon name="arrow_back" /></button>
-                                            <button onClick={handleAuth} className="flex-1 bg-[#b91c1c] text-white rounded-full py-4 text-[12px] font-medium uppercase tracking-widest active:scale-95 transition-all">Войти</button>
+                                            <button onClick={handleAuth} className="flex-1 bg-[#3171af] text-white rounded-full py-4 text-[12px] font-medium uppercase tracking-widest active:scale-95 transition-all">Войти</button>
                                         </div>
                                     </div>
                                 )}
@@ -803,25 +796,25 @@
                     
                     {/* Баннер установки приложения */}
                     {deferredPrompt && (
-                        <div className="sticky top-0 z-[70] bg-[#b91c1c] text-white px-4 py-2 flex justify-between items-center text-[10px]">
+                        <div className="sticky top-0 z-[70] bg-[#3171af] text-white px-4 py-2 flex justify-between items-center text-[10px]">
                             <span className="flex items-center gap-2">
                                 <Icon name="download" size={16} /> УСТАНОВИТЕ ПРИЛОЖЕНИЕ
                             </span>
-                            <button onClick={handleInstallClick} className="bg-white text-[#b91c1c] px-4 py-1.5 rounded-full text-[9px] font-medium uppercase tracking-wider">ДОБАВИТЬ</button>
+                            <button onClick={handleInstallClick} className="bg-white text-[#3171af] px-4 py-1.5 rounded-full text-[9px] font-medium uppercase tracking-wider">ДОБАВИТЬ</button>
                         </div>
                     )}
 
                     {/* Уведомление об обновлении PWA */}
                     {showUpdateNotification && (
-                        <div className="sticky top-0 z-[70] bg-[#b91c1c] text-white px-4 py-2 flex justify-between items-center text-[10px]" style={{ top: deferredPrompt ? '40px' : '0' }}>
+                        <div className="sticky top-0 z-[70] bg-[#3171af] text-white px-4 py-2 flex justify-between items-center text-[10px]" style={{ top: deferredPrompt ? '40px' : '0' }}>
                             <span className="flex items-center gap-2"><Icon name="update" size={16} /> ДОСТУПНА НОВАЯ ВЕРСИЯ</span>
-                            <button onClick={handleUpdateClick} className="bg-white text-[#b91c1c] px-4 py-1.5 rounded-full text-[9px] font-medium uppercase tracking-wider">ОБНОВИТЬ</button>
+                            <button onClick={handleUpdateClick} className="bg-white text-[#3171af] px-4 py-1.5 rounded-full text-[9px] font-medium uppercase tracking-wider">ОБНОВИТЬ</button>
                         </div>
                     )}
 
                     {toast && (
                         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[250] bg-black text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
-                            <Icon name="info" size={18} className="text-[#b91c1c]" />
+                            <Icon name="info" size={18} className="text-[#3171af]" />
                             <span className="text-[11px] font-medium uppercase tracking-wider">{toast}</span>
                         </div>
                     )}
@@ -849,7 +842,7 @@
                                         {disciplines.map(d => (
                                             <button key={d} onClick={() => { setDiscipline(d); setIsDisciplineOpen(false); }} className="w-full px-5 py-3 text-left hover:bg-gray-50 text-[12px] font-light flex justify-between items-center">
                                                 {d} 
-                                                {submittedDisciplines.includes(d) && <Icon name="check_circle" className="text-[#b91c1c]" size={14} />}
+                                                {submittedDisciplines.includes(d) && <Icon name="check_circle" className="text-[#3171af]" size={14} />}
                                             </button>
                                         ))}
                                     </div>
@@ -860,7 +853,7 @@
 
                     <main className="max-w-md mx-auto px-6 pt-6 space-y-6">
                         {isCurrentSubmitted && (
-                            <div className="bg-[#b91c1c]/10 border border-[#b91c1c]/20 rounded-xl p-3 flex items-center gap-3 text-[#b91c1c]">
+                            <div className="bg-[#3171af]/10 border border-[#3171af]/20 rounded-xl p-3 flex items-center gap-3 text-[#3171af]">
                                 <Icon name="check_circle" size={18} />
                                 <span className="text-[10px] font-medium uppercase tracking-wider">Отчет отправлен и заблокирован</span>
                             </div>
@@ -896,7 +889,7 @@
                                             </div>
                                             <div className="flex flex-col justify-end">
                                                 <label className="text-[8px] font-medium text-gray-400 uppercase tracking-[0.2em] mb-1.5 block">Штраф</label>
-                                                <div className="text-2xl font-light text-red-600">{total}</div>
+                                                <div className="text-2xl font-light text-black">{total}</div>
                                             </div>
                                         </div>
 
@@ -906,9 +899,9 @@
                                                 {participant.penalties.map((p, idx) => (
                                                     <div key={idx} className="penalty-item">
                                                         <span className="flex-1">{p.reason}</span>
-                                                        <span className="font-bold mx-2">{p.value}</span>
+                                                        <span className="font-bold mx-2 text-[#3171af]">{p.value}</span>
                                                         {!isCurrentSubmitted && (
-                                                            <button onClick={() => removePenalty(participant.id, idx)} className="text-red-700">
+                                                            <button onClick={() => removePenalty(participant.id, idx)} className="text-gray-500 hover:text-red-500">
                                                                 <Icon name="close" size={16} />
                                                             </button>
                                                         )}
@@ -919,67 +912,46 @@
 
                                         {/* Кнопки добавления штрафов */}
                                         {!isCurrentSubmitted && (
-                                            <div className="flex flex-wrap gap-2 relative">
+                                            <div className="flex flex-wrap gap-2">
                                                 <button 
-                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors penalty-button"
+                                                    className="px-4 py-2 bg-transparent border border-[#3171af] text-[#3171af] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#3171af] hover:text-white transition-colors"
                                                     onClick={() => {
                                                         const available = getAvailablePenalties(participant, 'three');
                                                         if (available.length === 0) {
                                                             showToast('Все штрафы -3 уже выбраны');
                                                             return;
                                                         }
-                                                        setActiveDropdown({ participantId: participant.id, category: 'three' });
+                                                        setPenaltyModal({ visible: true, participantId: participant.id, category: 'three' });
                                                     }}
                                                 >
                                                     -3
                                                 </button>
                                                 <button 
-                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors penalty-button"
+                                                    className="px-4 py-2 bg-transparent border border-[#3171af] text-[#3171af] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#3171af] hover:text-white transition-colors"
                                                     onClick={() => {
                                                         const available = getAvailablePenalties(participant, 'five');
                                                         if (available.length === 0) {
                                                             showToast('Все штрафы -5 уже выбраны');
                                                             return;
                                                         }
-                                                        setActiveDropdown({ participantId: participant.id, category: 'five' });
+                                                        setPenaltyModal({ visible: true, participantId: participant.id, category: 'five' });
                                                     }}
                                                 >
                                                     -5
                                                 </button>
                                                 <button 
-                                                    className="px-4 py-2 bg-transparent border border-[#b91c1c] text-[#b91c1c] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#b91c1c] hover:text-white transition-colors penalty-button"
+                                                    className="px-4 py-2 bg-transparent border border-[#3171af] text-[#3171af] rounded-full text-[10px] font-medium uppercase tracking-wider hover:bg-[#3171af] hover:text-white transition-colors"
                                                     onClick={() => {
                                                         const available = getAvailablePenalties(participant, 'ten');
                                                         if (available.length === 0) {
                                                             showToast('Все штрафы -10 уже выбраны');
                                                             return;
                                                         }
-                                                        setActiveDropdown({ participantId: participant.id, category: 'ten' });
+                                                        setPenaltyModal({ visible: true, participantId: participant.id, category: 'ten' });
                                                     }}
                                                 >
                                                     -10
                                                 </button>
-
-                                                {/* Выпадающий список штрафов */}
-                                                {activeDropdown.participantId === participant.id && activeDropdown.category && (
-                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 shadow-2xl rounded-xl py-1 z-50 max-h-48 overflow-y-auto no-scrollbar penalty-dropdown">
-                                                        {getAvailablePenalties(participant, activeDropdown.category).map((reason, idx) => (
-                                                            <div
-                                                                key={idx}
-                                                                onClick={() => {
-                                                                    addPenalty(participant.id, activeDropdown.category, reason);
-                                                                    setActiveDropdown({ participantId: null, category: null });
-                                                                }}
-                                                                className="px-4 py-3 text-[12px] font-light hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
-                                                            >
-                                                                {reason}
-                                                            </div>
-                                                        ))}
-                                                        {getAvailablePenalties(participant, activeDropdown.category).length === 0 && (
-                                                            <div className="px-4 py-3 text-center text-gray-400 text-[11px]">Нет доступных нарушений</div>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
 
@@ -1041,7 +1013,7 @@
                                 <button disabled={isCurrentSubmitted} onClick={() => setParticipants([...participants, { id: Date.now().toString(), number: '00', penalties: [], photos: [] }])} className={`w-11 h-11 rounded-full border border-gray-100 flex items-center justify-center active:scale-90 transition-all shadow-sm ${isCurrentSubmitted ? 'opacity-10' : 'bg-white'}`}>
                                     <Icon name="add" size={24} />
                                 </button>
-                                <button onClick={handleSendReport} disabled={!isReadyToSave || isCurrentSubmitted} className={`flex-1 h-11 rounded-full flex items-center justify-center gap-3 font-medium text-[10px] uppercase tracking-[0.2em] transition-all ${isReadyToSave && !isCurrentSubmitted ? 'bg-[#b91c1c] text-white shadow-lg active:scale-95' : 'bg-gray-100 text-gray-300 pointer-events-none'}`}>
+                                <button onClick={handleSendReport} disabled={!isReadyToSave || isCurrentSubmitted} className={`flex-1 h-11 rounded-full flex items-center justify-center gap-3 font-medium text-[10px] uppercase tracking-[0.2em] transition-all ${isReadyToSave && !isCurrentSubmitted ? 'bg-[#3171af] text-white shadow-lg active:scale-95' : 'bg-gray-100 text-gray-300 pointer-events-none'}`}>
                                     <Icon name="send" size={16} /> {isCurrentSubmitted ? 'Отправлено' : 'Отправить отчет'}
                                 </button>
                                 <button onClick={() => setIsSettingsOpen(true)} className="w-11 h-11 rounded-full border border-gray-100 bg-white flex items-center justify-center active:scale-90 transition-all shadow-sm">
@@ -1069,7 +1041,7 @@
                                     </div>
                                 </div>
                                 <div className="space-y-3">
-                                    <button onClick={handleSaveSettings} className="w-full bg-[#b91c1c] text-white rounded-full py-4 text-[11px] font-medium uppercase tracking-widest active:scale-95 transition-all">Сохранить</button>
+                                    <button onClick={handleSaveSettings} className="w-full bg-[#3171af] text-white rounded-full py-4 text-[11px] font-medium uppercase tracking-widest active:scale-95 transition-all">Сохранить</button>
                                     <button onClick={() => setIsHistoryOpen(true)} className="w-full bg-gray-50 text-gray-600 rounded-full py-4 text-[11px] font-medium uppercase tracking-widest active:scale-95 transition-all">История штрафов</button>
                                     <button onClick={async () => {
                                         try {
@@ -1116,13 +1088,49 @@
                                                         <div className="text-[8px] text-gray-400 uppercase">{item.discipline}</div>
                                                     </td>
                                                     <td className="px-4 py-4 text-right">
-                                                        <span className="bg-[#b91c1c] text-white text-[10px] px-2 py-0.5 rounded font-medium">{item.score}</span>
+                                                        <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded font-medium">{item.score}</span>
                                                     </td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Модальное окно выбора штрафа */}
+                    {penaltyModal.visible && (
+                        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                            <div className="bg-white rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col overflow-hidden shadow-2xl">
+                                <div className="flex justify-between items-center p-4 border-b border-gray-100">
+                                    <span className="text-sm font-medium">Выберите нарушение</span>
+                                    <button onClick={() => setPenaltyModal({ visible: false, participantId: null, category: null })}>
+                                        <Icon name="close" size={20} />
+                                    </button>
+                                </div>
+                                <div className="modal-penalty-list p-2">
+                                    {penaltyModal.category && (() => {
+                                        const participant = participants.find(p => p.id === penaltyModal.participantId);
+                                        if (!participant) return null;
+                                        const available = getAvailablePenalties(participant, penaltyModal.category);
+                                        return available.map((reason, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => {
+                                                    addPenalty(penaltyModal.participantId, penaltyModal.category, reason);
+                                                    setPenaltyModal({ visible: false, participantId: null, category: null });
+                                                }}
+                                                className="py-3 px-4 bg-gray-50 rounded-xl text-sm hover:bg-gray-100 active:bg-gray-200 cursor-pointer mb-1"
+                                            >
+                                                {reason}
+                                            </div>
+                                        ));
+                                    })()}
+                                    {penaltyModal.category && getAvailablePenalties(participants.find(p => p.id === penaltyModal.participantId), penaltyModal.category).length === 0 && (
+                                        <div className="text-center text-gray-500 py-4">Все штрафы этой категории уже выбраны</div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1139,7 +1147,7 @@
                                 </button>
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 p-10 pb-20 flex justify-center items-center bg-gradient-to-t from-black/60 to-transparent">
-                                <button onClick={takePhoto} className="w-20 h-20 bg-[#b91c1c] rounded-full border-[6px] border-white/20 flex items-center justify-center active:scale-90 transition-transform">
+                                <button onClick={takePhoto} className="w-20 h-20 bg-[#3171af] rounded-full border-[6px] border-white/20 flex items-center justify-center active:scale-90 transition-transform">
                                     <div className="w-14 h-14 bg-white rounded-full border-2 border-black/5" />
                                 </button>
                             </div>
